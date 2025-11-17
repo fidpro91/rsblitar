@@ -1,19 +1,11 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\BundleRawatjalanController;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
-|
-*/
-
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+Route::prefix('satusehat')->group(function () {
+    Route::get('location', [BundleRawatjalanController::class, 'create_location']);
+    Route::get('encounter/{visitId}', [BundleRawatjalanController::class, 'encounter']);
+    Route::get('patient/{nik}', [BundleRawatjalanController::class, 'search_patient']);
+    Route::get('prepare_bundle/{visitId}', [BundleRawatjalanController::class, 'prepare_bundle']);
 });
