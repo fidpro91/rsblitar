@@ -9,11 +9,10 @@ class EncounterBundle
 {
     public static function build($visitId)
     {        
+        
         $visit = Visit_encounter::with(['diagnossis'])
                     ->where('visit_id', $visitId)
                     ->firstOrFail();
-
-        $organization = Configs::where('tipe', 2)->first();
 
         $diagnosisArray = [];
         foreach ($visit->diagnossis as $diag) {

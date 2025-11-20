@@ -6,6 +6,9 @@ use App\Libraries\SatuSehat\AllergyBundle;
 use App\Libraries\SatuSehat\EncounterBundle;
 use App\Libraries\SatuSehat\ConditionBundle;
 use App\Libraries\SatuSehat\ObservationBundle;
+use App\Libraries\SatuSehat\CompositionBundle;
+use App\Libraries\SatuSehat\MedicationBundle;
+use App\Libraries\SatuSehat\ServiceRequestLabBundle;
 
 class BundleRawatjalanController extends BaseApiController
 {
@@ -30,18 +33,18 @@ class BundleRawatjalanController extends BaseApiController
 
     public function create_location()
     {
-         $url = "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Location";
+        $url = "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Location";
         $location = [
             "resourceType" => "Location",
             "identifier" => [
                 [
                     "system" => "http://sys-ids.kemkes.go.id/location/" . env('ORG_ID_DEV'),
-                    "value"  => "DEPO RAJAL"
+                    "value"  => "Apotek"
                 ]
             ],
             "status" => "active",
-            "name" => "DEPO RAJAL",
-            "description" => "DEPO RAJAL",
+            "name" => "Depo Rawat Jalan",
+            "description" => "Depo Rawat Jalan",
             "mode" => "instance",
 
             "telecom" => [
@@ -79,34 +82,61 @@ class BundleRawatjalanController extends BaseApiController
             ],
 
             "managingOrganization" => [
-                "reference" => "Organization/" . env('ORG_ID_DEV') 
+                "reference" => "Organization/" . env('ORG_ID_DEV')
             ]
         ];
-         $response = $this->satusehat->connect('post', $url, $location);
-          return response()->json($response, 200);
+        $response = $this->satusehat->connect('post', $url, $location);
+        return response()->json($response, 200);
     }
 
     public function prepare_bundle($visitId)
     {
         $url = "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/";
-        $encounterBundle = EncounterBundle::build($visitId);
-        $conditionBundles = ConditionBundle::build($visitId);
-        $observationBundle = ObservationBundle::build($visitId);
-        $allergyBundle = AllergyBundle::build($visitId);
-        $combinedBundle = [
-            "resourceType" => "Bundle",
-            "type" => "transaction",
-            "entry" => array_merge([$encounterBundle], $conditionBundles, $observationBundle, $allergyBundle)
-        ];
 
-        $response = $this->satusehat->connect('post', $url, $combinedBundle);
+        try {
 
-        return response()->json($response, 200);
-    }
+            $encounterBundle     = EncounterBundle::build($visitId);
+            $conditionBundles    = ConditionBundle::build($visitId);
+            $observationBundle   = ObservationBundle::build($visitId);
+            $allergyBundle       = AllergyBundle::build($visitId);
+            $compositionBundle   = CompositionBundle::build($visitId);
+            $serviceReqBundle = ServiceRequestLabBundle::build($visitId);
+            $medicationBundle = MedicationBundle::build($visitId);
+            $combinedBundle = [
+                "resourceType" => "Bundle",
+                "type" => "transaction",
+                "entry" => array_merge(
+                    [$encounterBundle],
+                    $conditionBundles,
+                    $observationBundle,
+                    $allergyBundle,
+                    [$compositionBundle],
+                    $serviceReqBundle,
+                    $medicationBundle
+                )
+            ];
 
-    public function encounter($visitId)
-    {
-        $bundle = EncounterBundle::build($visitId);
-        return response()->json($bundle, 200);
+            $response = $this->satusehat->connect('post', $url, $combinedBundle);
+            if (isset($response['resourceType']) && $response['resourceType'] === 'OperationOutcome') {
+                return response()->json([
+                    "success" => false,
+                    "message" => "Gagal mengirim bundle",
+                    "error"   => $response['issue'][0]['details']['text'] ?? "Unknown error"
+                ], 400);
+            }
+
+            return response()->json([
+                "success" => true,
+                "message" => "Bundle berhasil dikirim",
+                "data"    => $combinedBundle
+            ], 200);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                "success" => false,
+                "message" => "Exception saat mengirim bundle",
+                "error"   => $e->getMessage()
+            ], 500);
+        }
     }
 }

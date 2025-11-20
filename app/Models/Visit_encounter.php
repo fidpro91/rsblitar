@@ -34,16 +34,21 @@ class Visit_encounter extends Model
     public function diagnossis()
     {
         return $this->hasMany(Diagnosis::class, 'visit_id', 'visit_id')
-                    ->orderBy('rank', 'asc');
+            ->orderBy('rank', 'asc');
     }
-   
+
     public function observation()
     {
         return $this->hasMany(Observation::class, 'visit_id', 'visit_id');
     }
 
-     public function visit_allergy()
+    public function visit_allergy()
     {
         return $this->hasMany(Visit_alergy::class, 'visit_id', 'visit_id');
+    }
+
+    public function visit_lab()
+    {
+        return $this->hasMany(Visit_lab::class, 'visit_id', 'visit_id');
     }
 }
