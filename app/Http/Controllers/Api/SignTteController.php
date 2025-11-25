@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class SignTteController
 {
@@ -23,7 +25,7 @@ class SignTteController
             })(),
             "nik"        => $request->nik,
             "passphrase" => $request->passphrase,
-            "docx"        => "https://simrs-rsudmw.blitarkota.go.id/sign/cobareport.docx"
+            "docx"        => "https://simrs-rsudmw.blitarkota.go.id/sign/report_1764044663.docx"
         ];
         $url = config('tte.api_url');
 
@@ -156,7 +158,7 @@ class SignTteController
         }
     }
 
-    public function generateWord($url)
+    /* public function generateWord($url)
     {
         $html = Http::get($url)->body();
         if (!$html) {
@@ -179,6 +181,59 @@ class SignTteController
             throw new \Exception("Gagal generate word: " . $e->getMessage());
         }
 
+        return $filename;
+    } */
+
+    public function generateWord($url)
+    {
+        // 1. Ambil HTML dari URL
+        $response = Http::get($url);
+        $html = $response->body();
+
+        if (!$html) {
+            throw new \Exception("HTML kosong atau gagal diambil");
+        }
+
+        // Escape {QR} agar tidak error di LibreOffice
+        $html = str_replace('{QR}', '&#123;QR&#125;', $html);
+
+        // 2. Simpan HTML sementara
+        Storage::makeDirectory('temp'); // buat folder temp jika belum ada
+        $tempHtmlPath = Storage::path('temp/report_' . time() . '.html');
+        file_put_contents($tempHtmlPath, $html);
+
+        if (!file_exists($tempHtmlPath)) {
+            throw new \Exception("Gagal membuat file HTML sementara");
+        }
+
+        // 3. Tentukan nama file output DOCX
+        $filename = "report_" . time() . ".docx";
+        $outputDir = '/mnt/docxfile'; // bisa diganti storage_path('docx') jika mau
+        if (!file_exists($outputDir)) {
+            mkdir($outputDir, 0777, true);
+        }
+        $outputPath = $outputDir . '/' . $filename;
+
+        // 4. Convert HTML → DOCX dengan LibreOffice
+        $process = new Process([
+            'soffice',
+            '--headless',
+            '--convert-to', 'docx',
+            '--outdir', $outputDir,
+            $tempHtmlPath
+        ]);
+
+        try {
+            $process->mustRun();
+        } catch (ProcessFailedException $e) {
+            @unlink($tempHtmlPath);
+            throw new \Exception("Gagal convert LibreOffice: " . $e->getMessage());
+        }
+
+        // 5. Hapus file HTML sementara
+        @unlink($tempHtmlPath);
+
+        // 6. Return nama file
         return $filename;
     }
 
