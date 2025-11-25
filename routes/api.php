@@ -11,3 +11,4 @@ Route::prefix('satusehat')->group(function () {
 
 //TTE
 Route::post('tte/sign_tte',"SignTteController@signedpdf");
+Route::post('tte/generate_word',"SignTteController@generateWord");
