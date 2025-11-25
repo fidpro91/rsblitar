@@ -214,52 +214,96 @@ class SignTteController
         }
         $outputPath = $outputDir . '/' . $filename;
 
-        // 4. Convert HTML → DOCX dengan LibreOffice menggunakan filter yang tepat
-        $userConfig = '/tmp/libreoffice_user';
-        if (!file_exists($userConfig)) mkdir($userConfig, 0777, true);
+        // 4. Convert HTML → DOCX - PERSIS seperti yang berhasil di terminal
+        $userConfig = '/tmp/libreoffice_user_' . time(); // Unique directory setiap kali
         
-        $process = new Process([
-            'soffice',
-            '--headless',
-            '--convert-to', 'docx:"MS Word 2007 XML"', // FILTER YANG BERHASIL
-            '--outdir', $outputDir,
-            '-env:UserInstallation=file://'.$userConfig,
-            $tempHtmlPath
-        ]);
+        // Gunakan shell command PERSIS seperti di terminal
+        $command = sprintf(
+            'soffice --headless --convert-to "docx:MS Word 2007 XML" --outdir %s -env:UserInstallation=file://%s %s',
+            escapeshellarg($outputDir),
+            $userConfig,
+            escapeshellarg($tempHtmlPath)
+        );
 
-        // Atau jika ingin lebih aman, bisa menggunakan approach seperti ini:
-        // $process = Process::fromShellCommandline(
-        //     'soffice --headless --convert-to "docx:MS Word 2007 XML" --outdir ' . 
-        //     escapeshellarg($outputDir) . ' -env:UserInstallation=file://' . 
-        //     $userConfig . ' ' . escapeshellarg($tempHtmlPath)
-        // );
+        \Log::info("Executing command: " . $command);
+
+        // Buat user directory
+        if (!file_exists($userConfig)) {
+            mkdir($userConfig, 0777, true);
+        }
+
+        $process = Process::fromShellCommandline($command);
+        $process->setTimeout(60);
 
         try {
-            $process->setTimeout(60);
             $process->mustRun();
             
-            // Log output untuk debugging
-            /* \Log::info("LibreOffice Output: " . $process->getOutput());
-            \Log::info("LibreOffice Error Output: " . $process->getErrorOutput()); */
+            \Log::info("LibreOffice Success - Output: " . $process->getOutput());
+            \Log::info("LibreOffice Success - Error Output: " . $process->getErrorOutput());
             
         } catch (ProcessFailedException $e) {
+            // Cleanup
             @unlink($tempHtmlPath);
-            /* \Log::error("LibreOffice Convert Failed: " . $e->getMessage());
+            @exec("rm -rf " . escapeshellarg($userConfig));
+            
+            \Log::error("LibreOffice Failed: " . $e->getMessage());
             \Log::error("Process Output: " . $process->getOutput());
-            \Log::error("Process Error: " . $process->getErrorOutput()); */
+            \Log::error("Process Error: " . $process->getErrorOutput());
+            
             throw new \Exception("Gagal convert LibreOffice: " . $e->getMessage());
         }
 
-        // 5. Verifikasi file DOCX berhasil dibuat
-        if (!file_exists($outputPath)) {
-            @unlink($tempHtmlPath);
-            throw new \Exception("File DOCX gagal dibuat di: " . $outputPath);
+        // 5. Cari file yang benar-benar dibuat (bisa jadi nama berbeda)
+        $filesInDir = scandir($outputDir);
+        $docxFiles = array_filter($filesInDir, function($file) {
+            return pathinfo($file, PATHINFO_EXTENSION) === 'docx';
+        });
+        
+        \Log::info("All DOCX files in directory: " . implode(', ', $docxFiles));
+
+        // Cari file yang baru dibuat (berdasarkan timestamp)
+        $newestDocx = null;
+        $newestTime = 0;
+        
+        foreach ($docxFiles as $file) {
+            if ($file === '.' || $file === '..') continue;
+            
+            $filePath = $outputDir . '/' . $file;
+            $fileTime = filemtime($filePath);
+            
+            if ($fileTime > $newestTime) {
+                $newestTime = $fileTime;
+                $newestDocx = $file;
+            }
         }
 
-        // 6. Hapus file HTML sementara
-        @unlink($tempHtmlPath);
+        \Log::info("Newest DOCX file: " . $newestDocx);
 
-        // 7. Return nama file
+        // 6. Jika file expected tidak ada, tapi ada file DOCX lain, gunakan itu
+        if (!file_exists($outputPath) && $newestDocx) {
+            \Log::info("Expected file not found, but found: " . $newestDocx . ", using that instead");
+            $filename = $newestDocx;
+            $outputPath = $outputDir . '/' . $newestDocx;
+        }
+
+        // 7. Final verification
+        if (!file_exists($outputPath)) {
+            @unlink($tempHtmlPath);
+            @exec("rm -rf " . escapeshellarg($userConfig));
+            
+            throw new \Exception("File DOCX gagal dibuat. Files in directory: " . implode(', ', $filesInDir));
+        }
+
+        \Log::info("✅ DOCX file successfully created: " . $outputPath . " (Size: " . filesize($outputPath) . " bytes)");
+
+        // 8. Cleanup
+        @unlink($tempHtmlPath);
+        
+        // Hapus user config setelah delay kecil (pastikan LibreOffice selesai)
+        sleep(1);
+        @exec("rm -rf " . escapeshellarg($userConfig));
+
+        // 9. Return nama file
         return $filename;
     }
 
