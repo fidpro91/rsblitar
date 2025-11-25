@@ -68,7 +68,6 @@ class SignTteController
     public function signedpdf(Request $request)
     {
         try {
-
             // --- Persiapan POST ---
             $post = [
                 "api"           => $request->jenis_berkas == 'pdf'
@@ -79,9 +78,10 @@ class SignTteController
             ];
 
             if ($request->jenis_berkas == 'pdf') {
-                $post["pdf"] = "https://simrs-rsudmw.blitarkota.go.id/simrs/resep.pdf";
+                $post["pdf"] = $request->url;
             } else {
-                $post["docx"] = "https://simrs-rsudmw.blitarkota.go.id/simrs/resep.docx";
+                $urlDocx      = $this->generateWord($request->url);
+                $post["docx"] = "https://simrs-rsudmw.blitarkota.go.id/sign/".$urlDocx;
             }
 
             $url = config('tte.api_url');
@@ -156,37 +156,30 @@ class SignTteController
         }
     }
 
-    public function generateWord(Request $request)
+    private function generateWord($url)
     {
+        $html = Http::get($url)->body();
+        if (!$html) {
+            throw new \Exception("HTML kosong atau gagal diambil");
+        }
+
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $section = $phpWord->addSection();
+
+        \PhpOffice\PhpWord\Shared\Html::addHtml($section, $html, false, false);
+
+        $filename = "report_" . time() . ".docx";
+        // $path = storage_path('app/public/' . $filename);
+        $path = "/mnt/docxfile/" . $filename;
+
         try {
-            $html = Http::get($request->url)->body();
-
-            if (!$html) {
-                throw new \Exception("HTML kosong atau gagal diambil");
-            }
-
-            $phpWord = new \PhpOffice\PhpWord\PhpWord();
-            $section = $phpWord->addSection();
-
-            \PhpOffice\PhpWord\Shared\Html::addHtml($section, $html, false, false);
-
-            $filename = "report_" . time() . ".docx";
-            // $path = storage_path('app/public/' . $filename);
-            $path = "/mnt/docxfile/" . $filename;
-
             $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
             $writer->save($path);
-            return response()->json([
-                "code"      => 200,
-                "message"   => "OK"
-            ]);
         } catch (\Throwable $e) {
-            return response()->json([
-                "code"      => 201,
-                "message"   => "Gagal generate word",
-                "error"     => $e->getMessage()
-            ], 500);
+            throw new \Exception("Gagal generate word: " . $e->getMessage());
         }
+
+        return $filename;
     }
 
 }
