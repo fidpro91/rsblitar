@@ -162,7 +162,7 @@ class SignTteController
         if (!$html) {
             throw new \Exception("HTML kosong atau gagal diambil");
         }
-
+        $html = str_replace('{QR}', '&#123;QR&#125;', $html);
         $phpWord = new \PhpOffice\PhpWord\PhpWord();
         $section = $phpWord->addSection();
 
