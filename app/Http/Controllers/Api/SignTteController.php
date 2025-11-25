@@ -23,7 +23,7 @@ class SignTteController
             })(),
             "nik"        => $request->nik,
             "passphrase" => $request->passphrase,
-            "pdf"        => "https://simrs-rsudmw.blitarkota.go.id/simrs/resep.pdf"
+            "docx"        => "https://simrs-rsudmw.blitarkota.go.id/sign/cobareport.docx"
         ];
         $url = config('tte.api_url');
 
@@ -156,7 +156,7 @@ class SignTteController
         }
     }
 
-    private function generateWord($url)
+    public function generateWord($url)
     {
         $html = Http::get($url)->body();
         if (!$html) {

@@ -28,7 +28,9 @@
     <br/>
 
     <p><i>Dokter Penanggung Jawab:</i></p>
-    <p>{QR}</p>
+    <br>
+    {QR}
+    <br>
     <p><b>dr. Budi Santoso</b></p>
 </body>
 </html>
