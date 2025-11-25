@@ -6,8 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use PhpOffice\PhpWord\PhpWord;
-use PhpOffice\PhpWord\IOFactory;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
@@ -70,6 +68,7 @@ class SignTteController
     public function signedpdf(Request $request)
     {
         try {
+            $this->validateSignedPdfRequest($request);
             // --- Persiapan POST ---
             $post = [
                 "api"           => $request->jenis_berkas == 'pdf'
@@ -134,7 +133,7 @@ class SignTteController
         }
     }
 
-    private function validateSignedPdfRequest(Request $request)
+    private function validateSignedPdfRequest($request)
     {
         $rules = [
             "nik"          => "required",
@@ -193,7 +192,6 @@ class SignTteController
         }
         // Escape {QR} agar tidak error di LibreOffice
         $html = str_replace('{QR}', '&#123;QR&#125;', $html);
-        // 2. Simpan HTML sementara
         Storage::makeDirectory('temp');
         $tempHtmlPath = Storage::path('temp/report_' . time() . '.html');
         file_put_contents($tempHtmlPath, $html);
@@ -225,22 +223,18 @@ class SignTteController
         try {
             $process->mustRun();
         } catch (ProcessFailedException $e) {
-            // Cleanup
             @unlink($tempHtmlPath);
             @exec("rm -rf " . escapeshellarg($userConfig));
             throw new \Exception("Gagal convert LibreOffice: " . $e->getMessage());
         }
-        // 7. Final verification
         if (!file_exists($outputPath)) {
             @unlink($tempHtmlPath);
             @exec("rm -rf " . escapeshellarg($userConfig));
-            throw new \Exception("File DOCX gagal dibuat. Files in directory: " . implode(', ', $filesInDir));
+            throw new \Exception("File DOCX gagal dibuat.");
         }
         @unlink($tempHtmlPath);
-        // Hapus user config setelah delay kecil (pastikan LibreOffice selesai)
         sleep(1);
         @exec("rm -rf " . escapeshellarg($userConfig));
-        // 9. Return nama file
         return $filename;
     }
 
