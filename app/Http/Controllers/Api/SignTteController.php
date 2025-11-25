@@ -25,7 +25,7 @@ class SignTteController
             })(),
             "nik"        => $request->nik,
             "passphrase" => $request->passphrase,
-            "docx"        => "https://simrs-rsudmw.blitarkota.go.id/sign/report_1764044663.docx"
+            "docx"        => "https://simrs-rsudmw.blitarkota.go.id/sign/report_1764047937.docx"
         ];
         $url = config('tte.api_url');
 
@@ -198,45 +198,68 @@ class SignTteController
         $html = str_replace('{QR}', '&#123;QR&#125;', $html);
 
         // 2. Simpan HTML sementara
-        Storage::makeDirectory('temp'); // buat folder temp jika belum ada
+        Storage::makeDirectory('temp');
         $tempHtmlPath = Storage::path('temp/report_' . time() . '.html');
         file_put_contents($tempHtmlPath, $html);
-        dd($tempHtmlPath);
+
         if (!file_exists($tempHtmlPath)) {
             throw new \Exception("Gagal membuat file HTML sementara");
         }
 
         // 3. Tentukan nama file output DOCX
         $filename = "report_" . time() . ".docx";
-        $outputDir = '/mnt/docxfile'; // bisa diganti storage_path('docx') jika mau
+        $outputDir = '/mnt/docxfile';
         if (!file_exists($outputDir)) {
             mkdir($outputDir, 0777, true);
         }
         $outputPath = $outputDir . '/' . $filename;
 
-        // 4. Convert HTML → DOCX dengan LibreOffice
+        // 4. Convert HTML → DOCX dengan LibreOffice menggunakan filter yang tepat
         $userConfig = '/tmp/libreoffice_user';
         if (!file_exists($userConfig)) mkdir($userConfig, 0777, true);
+        
         $process = new Process([
             'soffice',
             '--headless',
-            '--convert-to', 'docx',
+            '--convert-to', 'docx:"MS Word 2007 XML"', // FILTER YANG BERHASIL
             '--outdir', $outputDir,
             '-env:UserInstallation=file://'.$userConfig,
             $tempHtmlPath
         ]);
 
+        // Atau jika ingin lebih aman, bisa menggunakan approach seperti ini:
+        // $process = Process::fromShellCommandline(
+        //     'soffice --headless --convert-to "docx:MS Word 2007 XML" --outdir ' . 
+        //     escapeshellarg($outputDir) . ' -env:UserInstallation=file://' . 
+        //     $userConfig . ' ' . escapeshellarg($tempHtmlPath)
+        // );
+
         try {
+            $process->setTimeout(60);
             $process->mustRun();
+            
+            // Log output untuk debugging
+            /* \Log::info("LibreOffice Output: " . $process->getOutput());
+            \Log::info("LibreOffice Error Output: " . $process->getErrorOutput()); */
+            
         } catch (ProcessFailedException $e) {
             @unlink($tempHtmlPath);
+            /* \Log::error("LibreOffice Convert Failed: " . $e->getMessage());
+            \Log::error("Process Output: " . $process->getOutput());
+            \Log::error("Process Error: " . $process->getErrorOutput()); */
             throw new \Exception("Gagal convert LibreOffice: " . $e->getMessage());
         }
 
-        // 5. Hapus file HTML sementara
+        // 5. Verifikasi file DOCX berhasil dibuat
+        if (!file_exists($outputPath)) {
+            @unlink($tempHtmlPath);
+            throw new \Exception("File DOCX gagal dibuat di: " . $outputPath);
+        }
+
+        // 6. Hapus file HTML sementara
         @unlink($tempHtmlPath);
-        
-        // 6. Return nama file
+
+        // 7. Return nama file
         return $filename;
     }
 
