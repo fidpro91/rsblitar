@@ -215,11 +215,14 @@ class SignTteController
         $outputPath = $outputDir . '/' . $filename;
 
         // 4. Convert HTML → DOCX dengan LibreOffice
+        $userConfig = '/tmp/libreoffice_user';
+        if (!file_exists($userConfig)) mkdir($userConfig, 0777, true);
         $process = new Process([
             'soffice',
             '--headless',
             '--convert-to', 'docx',
             '--outdir', $outputDir,
+            '--env:UserInstallation=file://'.$userConfig,
             $tempHtmlPath
         ]);
 
