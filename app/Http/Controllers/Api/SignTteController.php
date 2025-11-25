@@ -222,7 +222,7 @@ class SignTteController
             '--headless',
             '--convert-to', 'docx',
             '--outdir', $outputDir,
-            '--env:UserInstallation=file://'.$userConfig,
+            '-env:UserInstallation=file://'.$userConfig,
             $tempHtmlPath
         ]);
 
