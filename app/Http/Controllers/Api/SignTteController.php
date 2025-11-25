@@ -201,7 +201,7 @@ class SignTteController
         Storage::makeDirectory('temp'); // buat folder temp jika belum ada
         $tempHtmlPath = Storage::path('temp/report_' . time() . '.html');
         file_put_contents($tempHtmlPath, $html);
-
+        dd($tempHtmlPath);
         if (!file_exists($tempHtmlPath)) {
             throw new \Exception("Gagal membuat file HTML sementara");
         }
@@ -235,7 +235,7 @@ class SignTteController
 
         // 5. Hapus file HTML sementara
         @unlink($tempHtmlPath);
-        dd($filename);
+        
         // 6. Return nama file
         return $filename;
     }
