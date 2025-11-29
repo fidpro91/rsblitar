@@ -12,6 +12,7 @@ class MappingSatsetController
 {
     public function get_kfa() {
         $data = Kfa_master::select([
+            'id',
             'code_kfa',
             'nama_kfa',
             'type',
