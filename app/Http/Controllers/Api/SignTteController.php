@@ -119,7 +119,75 @@ class SignTteController
                 "code"    => "200",
                 "message" => "Berhasil sign TTE",
                 "data"    => [
-                    "url" => request()->getSchemeAndHttpHost() . "/signed/" . $fileName
+                    "url" => request()->getSchemeAndHttpHost() . "/storage/signed/" . $fileName
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                "code"    => "500",
+                "message" => "Gagal memproses tanda tangan",
+                "error"   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function signedpdfMulti(Request $request)
+    {
+        try {
+            $this->validateSignedPdfRequest($request);
+            // --- Persiapan POST ---
+            $post = [
+                "api"           => $request->jenis_berkas == 'pdf'
+                                    ? config('tte.signPdf')
+                                    : config('tte.signDocx'),
+                "nik"           => $request->nik,
+                "passphrase"    => $request->passphrase
+            ];
+
+            if ($request->jenis_berkas == 'pdf') {
+                $post["pdf"] = $request->url;
+            } else {
+                $urlDocx      = $this->generateWord($request->url);
+                $post["docx"] = "https://simrs-rsudmw.blitarkota.go.id/sign/".$urlDocx;
+            }
+
+            $url = config('tte.api_url');
+
+            // --- Mengirim request ke server TTE ---
+            $response = Http::asForm()->timeout(60)->post($url, $post);
+
+            if ($response->failed()) {
+                throw new \Exception("Server TTE error: " . $response->body());
+            }
+
+            $data = $response->json();
+            // dd($response->json(), $response->body(), $response->status(), $response->headers());
+            if (!isset($data['signed']) || trim($data['signed']) == "") {
+                throw new \Exception("URL PDF 'signed' tidak valid dari server TTE");
+            }
+
+            // --- Download file hasil sign ---
+            $fileContent = @file_get_contents($data['signed']);
+            if ($fileContent === false) {
+                throw new \Exception("Gagal mendownload PDF dari URL signed");
+            }
+
+            // --- Simpan ke storage ---
+            $fileName = $request->berkas . "_" . $request->visit_id . "_" . $request->id_berkas . ".pdf";
+
+            $saved = Storage::disk('public')->put("signed/".$fileName, $fileContent);
+            if (!$saved) {
+                throw new \Exception("Gagal menyimpan file PDF ke storage");
+            }
+
+            // --- Return sukses ---
+            return response()->json([
+                "code"    => "200",
+                "message" => "Berhasil sign TTE",
+                "data"    => [
+                    "url" => request()->getSchemeAndHttpHost() . "/storage/signed/" . $fileName
                 ]
             ]);
 
@@ -185,7 +253,7 @@ class SignTteController
 
     public function generateWord($url)
     {
-        $response = Http::get($url);
+        $response = Http::withoutVerifying()->get($url);
         $html = $response->body();
         if (!$html) {
             throw new \Exception("HTML kosong atau gagal diambil");

@@ -1,4 +1,5 @@
 <html>
+<img src="{{asset('juragankonten.png')}}" alt="" width="100">
 <body>
     <h2>Laporan Pemeriksaan Pasien</h2>
 
