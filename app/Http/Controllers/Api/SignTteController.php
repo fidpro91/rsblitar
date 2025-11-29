@@ -253,7 +253,7 @@ class SignTteController
 
     public function generateWord($url)
     {
-        $response = Http::withoutVerifying()->get($url);
+        $response = Http::get($url);
         $html = $response->body();
         if (!$html) {
             throw new \Exception("HTML kosong atau gagal diambil");
