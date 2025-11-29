@@ -34,6 +34,7 @@ class MappingSatsetController
 
     public function get_pemeriksaan() {
         $data = Ms_pemeriksaan::select([
+            'id',
             'code_value',
             'code_display',
             'category',
