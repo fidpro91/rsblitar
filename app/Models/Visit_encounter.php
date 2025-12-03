@@ -27,7 +27,10 @@ class Visit_encounter extends Model
         'tipe_kunjungan',
         'is_send',
         'uuid_encounter',
-        'kode_pasien'
+        'kode_pasien',
+        'instruksi_pulang',
+        'uuid_composition',
+        'uuid_clinicalimpresion'
     ];
     public $timestamps = true;
 
@@ -50,5 +53,10 @@ class Visit_encounter extends Model
     public function visit_lab()
     {
         return $this->hasMany(Visit_lab::class, 'visit_id', 'visit_id');
+    }
+
+    public function icd9()
+    {
+        return $this->hasMany(Visit_icd9::class, 'visit_id', 'visit_id');
     }
 }

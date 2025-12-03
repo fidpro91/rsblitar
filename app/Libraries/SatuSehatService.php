@@ -12,7 +12,6 @@ class SatuSehatService
 
     public function __construct()
     {
-        // Ambil config sesuai tipe (staging/production)
         $this->config = Configs::where('tipe', 2)->firstOrFail();
         $this->baseUrl = $this->config->url;
     }
@@ -39,7 +38,7 @@ class SatuSehatService
     {
         $token = $this->getToken();
         $accessToken = $token['access_token'] ?? null;
-
+    
         if (!$accessToken) {
             return ['error' => 'Token gagal di-generate', 'detail' => $token];
         }

@@ -67,7 +67,6 @@ class MedicationBundle
                 ]
             ];
 
-            // ingredient mapping (jika ada)
             $ingredientArray = [];
             if (!empty($kfa->ingredients)) {
                 $ing = $kfa->ingredients;
@@ -79,8 +78,7 @@ class MedicationBundle
                     foreach ($ing as $ingItem) {
                         $codingCode = $ingItem['code'] ?? $ingItem['kfa_code'] ?? ($ingItem['itemCodeableConcept']['coding'][0]['code'] ?? null);
                         $display = $ingItem['display'] ?? ($ingItem['name'] ?? ($ingItem['zat_aktif']) ?? ($ingItem['itemCodeableConcept']['coding'][0]['display'] ?? null));
-                        $strengthNumerator = $ingItem['strength']['numerator'] ?? null;
-                        $strengthDenominator = $ingItem['strength']['denominator'] ?? null;
+
                         $ingredientArray[] = [
                             'itemCodeableConcept' => [
                                 'coding' => [
@@ -92,7 +90,6 @@ class MedicationBundle
                                 ]
                             ],
                             'isActive' => $ingItem['isActive'] ?? true
-                           
                         ];
                     }
                 }
@@ -112,13 +109,10 @@ class MedicationBundle
                 ];
             }
             $medicationResource['resource']['ingredient'] = $ingredientArray;
-
-            // tambahkan Medication
             $bundleEntries[] = $medicationResource;
 
-            // ------ MedicationRequest resource ------
+          
             $authoredOn = date("Y-m-d\TH:i:sP", strtotime($item->waktu_resep_dibuat));
-
 
             $medRequestResource = [
                 'fullUrl' => 'urn:uuid:' . $item->uuid_med_request,
@@ -240,9 +234,55 @@ class MedicationBundle
 
             $bundleEntries[] = $medRequestResource;
 
-            $waktupembuatan =  date("Y-m-d\TH:i:sP", strtotime($item->waktu_resep_diproses));
-            $obat_diberikan =  date("Y-m-d\TH:i:sP", strtotime($item->waktu_diserahkan));
+           
+            $waktupembuatan = date("Y-m-d\TH:i:sP", strtotime($item->waktu_resep_diproses));
+            $obat_diberikan = date("Y-m-d\TH:i:sP", strtotime($item->waktu_diserahkan));           
+            $uuidMedStatement = (string) \Illuminate\Support\Str::uuid();
+
+            $medicationStatementResource = [
+                'fullUrl' => 'urn:uuid:' . $uuidMedStatement,
+                'resource' => [
+                    'resourceType' => 'MedicationStatement',
+                    'meta' => [
+                        'profile' => [
+                            'https://fhir.kemkes.go.id/r4/StructureDefinition/MedicationStatement'
+                        ]
+                    ],
+                    'status' => 'active',
+                    'medicationReference' => [
+                        'reference' => 'Medication/' . $item->uuid_med,
+                        'display' => $item->item_name ?? ($kfa->nama_kfa ?? null),
+                    ],
+                    'subject' => [
+                        'reference' => 'Patient/' . $visit->kode_pasien,
+                        'display' => $visit->px_name,
+                    ],
+                    'context' => [
+                        'reference' => 'urn:uuid:' . $visit->uuid_encounter,
+                    ],                  
+                    'effectiveDateTime' => $obat_diberikan ?: $authoredOn,                   
+                    'dateAsserted' => $waktupembuatan,
+                    'informationSource' => [
+                        'reference' => 'Practitioner/' . $item->kode_dokter,
+                        'display' => $item->dokter_peresep,
+                    ],
+                   
+                    'note' => [
+                        [
+                            'text' => 'Informasi penggunaan obat dinyatakan oleh pasien.'
+                        ]
+                    ],
+                ],
+                'request' => [
+                    'method' => 'POST',
+                    'url' => 'MedicationStatement'
+                ]
+            ];
+
+            $bundleEntries[] = $medicationStatementResource;
+            
             $uom = json_decode($kfa->dosis_form, true);
+
             $medicationDispenseResource = [
                 'fullUrl' => 'urn:uuid:' . $item->uuid_med_dispen,
                 'resource' => [
@@ -297,7 +337,6 @@ class MedicationBundle
                             'reference' => 'MedicationRequest/' . $item->uuid_med_request
                         ]
                     ],
-
                     'quantity' => [
                         'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
                         'code' => $uom['name'] ?? 'TAB',
@@ -315,6 +354,6 @@ class MedicationBundle
             $bundleEntries[] = $medicationDispenseResource;
         }
 
-        return  $bundleEntries;
+        return $bundleEntries;
     }
 }

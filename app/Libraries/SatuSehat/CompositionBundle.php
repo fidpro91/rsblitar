@@ -11,7 +11,6 @@ class CompositionBundle
     {
         $visit = Visit_encounter::where('visit_id', $visitId)->firstOrFail();
 
-        // ===== Wajib: Composition harus menjadi array entry =====
         $compositionEntry = [
             "fullUrl" => "urn:uuid:" . $visit->uuid_composition,
 

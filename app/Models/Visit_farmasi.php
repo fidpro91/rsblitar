@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Ramsey\Uuid\Codec\TimestampFirstCombCodec;
 
 class Visit_farmasi extends Model
 {
@@ -31,6 +32,7 @@ class Visit_farmasi extends Model
         'uuid_med_dispen',
         'sale_num'
     ];
+    public $timestamps = false;
 
 
     public function ms_kfa()

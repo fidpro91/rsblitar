@@ -1,10 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\BundleRawatjalanController;
+use App\Http\Controllers\Api\SendBundleManualController;
 
-Route::prefix('satusehat')->group(function () {
-    Route::get('location', [BundleRawatjalanController::class, 'create_location']);    
-    Route::get('patient/{nik}', [BundleRawatjalanController::class, 'search_patient']);
-    Route::get('prepare_bundle/{visitId}', [BundleRawatjalanController::class, 'prepare_bundle']);
+Route::prefix('satusehat')->group(function () {   
+    Route::get('sendBundleManual/{visitId}', [SendBundleManualController::class, 'sendBundleManual']);
+    Route::get('createdata', [SendBundleManualController::class, 'createdata'])->name('make');
 });

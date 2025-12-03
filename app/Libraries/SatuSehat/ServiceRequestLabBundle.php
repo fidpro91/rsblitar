@@ -207,7 +207,7 @@ class ServiceRequestLabBundle
                 ]
             ];
 
-            // Observation entry
+            // Observation 
             $entries[] = [
                 "fullUrl" => "urn:uuid:{$lab->uuid_obs}",
                 "resource" => [

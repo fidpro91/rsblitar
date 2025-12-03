@@ -30,7 +30,7 @@ class Visit_lab extends Model
         'uuid_servicereq',
     ];
 
-    public $timestamps = true;
+    public $timestamps = false;
 
     public function pemeriksaan()
     {
