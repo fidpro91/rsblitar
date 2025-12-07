@@ -259,6 +259,18 @@ class SignTteController extends BaseApiController
         return $filename;
     } */
 
+    public function tes_pdf(Request $request)
+    {
+        $response = Http::withoutVerifying()->get($request->url);
+        $html = $response->body();
+        if (!$html) {
+            throw new \Exception("HTML kosong atau gagal diambil");
+        }
+        Storage::makeDirectory('temp');
+        $tempHtmlPath = Storage::path('temp/report_' . time() . '.pdf');
+        file_put_contents($tempHtmlPath, $html);
+    }
+
     public function generateWord($url)
     {
         $response = Http::withoutVerifying()->get($url);
@@ -267,7 +279,7 @@ class SignTteController extends BaseApiController
             throw new \Exception("HTML kosong atau gagal diambil");
         }
         // Escape {QR} agar tidak error di LibreOffice
-        $html = str_replace('{QR}', '&#123;QR&#125;', $html);
+        // $html = str_replace('{QR}', '&#123;QR&#125;', $html);
         Storage::makeDirectory('temp');
         $tempHtmlPath = Storage::path('temp/report_' . time() . '.pdf');
         file_put_contents($tempHtmlPath, $html);

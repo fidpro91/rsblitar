@@ -15,3 +15,4 @@ Route::prefix('satusehat')->group(function () {
 
 //TTE
 Route::post('tte/sign_tte',"SignTteController@signedpdf");
+Route::post('tte/tes_pdf',"SignTteController@tes_pdf");

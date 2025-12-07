@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CobaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,3 +24,4 @@ Route::get('contoh', function () {
 Route::get('tes_script', function () {
     return view('tes_script');
 });
+Route::get('/cetak-resume', [CobaController::class, 'cetakResume']);
