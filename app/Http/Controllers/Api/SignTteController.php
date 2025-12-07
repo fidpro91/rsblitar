@@ -259,18 +259,6 @@ class SignTteController extends BaseApiController
         return $filename;
     } */
 
-    public function tes_pdf(Request $request)
-    {
-        $response = Http::withoutVerifying()->get($request->url);
-        $html = $response->body();
-        if (!$html) {
-            throw new \Exception("HTML kosong atau gagal diambil");
-        }
-        Storage::makeDirectory('temp');
-        $tempHtmlPath = Storage::path('temp/report_' . time() . '.pdf');
-        file_put_contents($tempHtmlPath, $html);
-    }
-
     public function generateWord($url)
     {
         $response = Http::withoutVerifying()->get($url);
@@ -279,9 +267,9 @@ class SignTteController extends BaseApiController
             throw new \Exception("HTML kosong atau gagal diambil");
         }
         // Escape {QR} agar tidak error di LibreOffice
-        // $html = str_replace('{QR}', '&#123;QR&#125;', $html);
+        $html = str_replace('{QR}', '&#123;QR&#125;', $html);
         Storage::makeDirectory('temp');
-        $tempHtmlPath = Storage::path('temp/report_' . time() . '.pdf');
+        $tempHtmlPath = Storage::path('temp/report_' . time() . '.html');
         file_put_contents($tempHtmlPath, $html);
 
         if (!file_exists($tempHtmlPath)) {
@@ -297,7 +285,7 @@ class SignTteController extends BaseApiController
         $userConfig = '/tmp/libreoffice_user_' . time(); // Unique directory setiap kali
         // Gunakan shell command PERSIS seperti di terminal
         $command = sprintf(
-            'soffice --headless --convert-to docx --outdir %s -env:UserInstallation=file://%s %s',
+            'soffice --headless --convert-to "docx:MS Word 2007 XML" --outdir %s -env:UserInstallation=file://%s %s',
             escapeshellarg($outputDir),
             $userConfig,
             escapeshellarg($tempHtmlPath)
