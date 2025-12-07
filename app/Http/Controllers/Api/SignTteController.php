@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
-class SignTteController
+class SignTteController extends BaseApiController
 {
     /* public function signedpdf(Request $request)
     {
@@ -67,16 +67,16 @@ class SignTteController
 
     public function signedpdf(Request $request)
     {
+        // --- Persiapan POST ---
+        $post = [
+            "api"           => $request->jenis_berkas == 'pdf'
+                                ? config('tte.signPdf')
+                                : config('tte.signDocx'),
+            "nik"           => $request->nik,
+            "passphrase"    => $request->passphrase
+        ];
         try {
             $this->validateSignedPdfRequest($request);
-            // --- Persiapan POST ---
-            $post = [
-                "api"           => $request->jenis_berkas == 'pdf'
-                                    ? config('tte.signPdf')
-                                    : config('tte.signDocx'),
-                "nik"           => $request->nik,
-                "passphrase"    => $request->passphrase
-            ];
 
             if ($request->jenis_berkas == 'pdf') {
                 $post["pdf"] = $request->url;
@@ -124,7 +124,15 @@ class SignTteController
             ]);
 
         } catch (\Exception $e) {
-
+            $this->logging('sign TTE',[
+                "url"       => $post['api'],
+                "method"    => 'post',
+                "code"      => 202,
+                "body"      => json_encode($post),
+                "status"    => 500,
+                "error_message" => $e->getMessage()
+            ]);
+            
             return response()->json([
                 "code"    => "500",
                 "message" => "Gagal memproses tanda tangan",
@@ -261,7 +269,7 @@ class SignTteController
         // Escape {QR} agar tidak error di LibreOffice
         $html = str_replace('{QR}', '&#123;QR&#125;', $html);
         Storage::makeDirectory('temp');
-        $tempHtmlPath = Storage::path('temp/report_' . time() . '.html');
+        $tempHtmlPath = Storage::path('temp/report_' . time() . '.pdf');
         file_put_contents($tempHtmlPath, $html);
 
         if (!file_exists($tempHtmlPath)) {
@@ -277,7 +285,7 @@ class SignTteController
         $userConfig = '/tmp/libreoffice_user_' . time(); // Unique directory setiap kali
         // Gunakan shell command PERSIS seperti di terminal
         $command = sprintf(
-            'soffice --headless --convert-to "docx:MS Word 2007 XML" --outdir %s -env:UserInstallation=file://%s %s',
+            'soffice --headless --convert-to docx --outdir %s -env:UserInstallation=file://%s %s',
             escapeshellarg($outputDir),
             $userConfig,
             escapeshellarg($tempHtmlPath)

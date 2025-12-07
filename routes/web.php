@@ -20,3 +20,6 @@ Route::get('/', function () {
 Route::get('contoh', function () {
     return view('sample');
 });
+Route::get('tes_script', function () {
+    return view('tes_script');
+});

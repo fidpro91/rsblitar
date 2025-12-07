@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Libraries\SatuSehatService;
+use App\Models\Log_http;
 
 class BaseApiController extends Controller
 {
@@ -30,5 +31,20 @@ class BaseApiController extends Controller
             'message' => $message,
             'data'    => $data
         ], $code);
+    }
+    
+    protected function logging($service_name, $data = null)
+    {
+        Log_http::create(
+            [
+                'service_name'      => $service_name,
+                'endpoint_url'      => $data['url'],
+                'http_method'       => $data['method'],
+                'response_code'     => $data['code'],
+                'response_body'     => $data['body'],
+                'status'            => $data['status'],
+                'response_message'  => $data['error_message'],
+            ]
+        );
     }
 }
