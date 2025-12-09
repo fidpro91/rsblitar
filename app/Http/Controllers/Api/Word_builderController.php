@@ -18,10 +18,10 @@ class Word_builderController
             }
             return $fileWord; 
         } catch (\Exception $e) {
-            return response()->json([
+            return [
                 'code'      => $e->getCode(),   
                 'message'   => $e->getMessage(), 
-            ], 500);
+            ];
         }
     }
 
