@@ -326,7 +326,7 @@ class SignTteController extends BaseApiController
             $this->validateSignedPdfRequest($request);
             $urlDocx = app(Word_builderController::class);
             $urlDocx = $urlDocx->generate_word($request);
-
+            dd($urlDocx);
             if ($urlDocx['code'] != 200) {
                 throw new \Exception($urlDocx['message'],$urlDocx['code']);
             }
