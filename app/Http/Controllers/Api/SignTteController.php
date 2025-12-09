@@ -314,7 +314,7 @@ class SignTteController extends BaseApiController
         return $filename;
     }
 
-    public function signedWithTemplate($request)
+    public function signedWithTemplate(Request $request)
     {
         // --- Persiapan POST ---
         $post = [
