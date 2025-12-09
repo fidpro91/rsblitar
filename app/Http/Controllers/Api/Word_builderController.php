@@ -38,9 +38,6 @@ class Word_builderController
         $dataPasien = collect($request->data['pasien']);
         // Isi placeholder dengan value dummy
         foreach ($dataPasien as $key => $value) {
-            if (is_array($value) || is_object($value)) {
-                throw new \Exception("Value pasien untuk key '{$key}' harus berupa string.",202);
-            }
             $template->setValue($key, $value);
         }
 
