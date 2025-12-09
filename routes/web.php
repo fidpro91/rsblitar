@@ -25,3 +25,4 @@ Route::get('tes_script', function () {
     return view('tes_script');
 });
 Route::get('/cetak-resume', [CobaController::class, 'cetakResume']);
+Route::get('/generate_word', [CobaController::class, 'tes_word']);
