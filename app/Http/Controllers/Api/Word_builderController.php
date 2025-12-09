@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 class Word_builderController
@@ -26,6 +27,8 @@ class Word_builderController
     }
 
     private function set_resume_medis($request) {
+        $this->validasi_resumeMedis($request);
+
         $templatePath = storage_path('app/template/resume_medis.docx');
         if (!file_exists($templatePath)) {
             throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}",205);
@@ -70,13 +73,21 @@ class Word_builderController
         ->toArray();
         $template->cloneRowAndSetValues('tind.no', $dataTindakan);
 
-        $dataPemeriksaan = collect($request->data['pemeriksaan'])
-        ->map(fn($v) => "- " . $v)
-        ->implode("\n");
-        $template->setValue('pemeriksaan', $dataPemeriksaan);
+        if (is_array($request->data['pemeriksaan'])) {
+            $dataPemeriksaan = collect($request->data['pemeriksaan'])
+            ->map(fn($v) => "- " . $v)
+            ->implode("\n");
+            $template->setValue('pemeriksaan', $dataPemeriksaan);
+        }else {
+            $dataPemeriksaan = $request->data['pemeriksaan'];
+        }
 
-        $dataTerapi = collect($request->data['terapi'])->implode(", ");
-        $template->setValue('terapi', $dataTerapi);
+        if (is_array($request->data['terapi'])) {
+            $dataTerapi = collect($request->data['terapi'])->implode(", ");
+            $template->setValue('terapi', $dataTerapi);
+        }else {
+            $dataTerapi = $request->data['terapi'];
+        }
 
         $template->setValue("nama_dokter", $request->nama);
         $template->setValue("tanggal", Carbon::now()->translatedFormat('d F Y'));
@@ -92,6 +103,55 @@ class Word_builderController
             "file"      => $nameFile,
             "location"  => $outputPath
         ];
+    }
+
+    private function validasi_resumeMedis($request)
+    {
+        try {
+            $request->validate([
+                // Validasi pasien
+                'data.pasien'                       => 'required|array',
+                'data.pasien.rm'                    => 'required|string',
+                'data.pasien.sep'                   => 'nullable',
+                'data.pasien.nama_pasien'           => 'required|string',
+                'data.pasien.nik'                   => 'required|string',
+                'data.pasien.total_biaya'           => 'required|string',
+                'data.pasien.jenis_perawatan'       => 'required|string',
+                'data.pasien.tgl_masuk'             => 'required|date',
+                'data.pasien.tgl_keluar'            => 'required|date',
+                'data.pasien.jumlah_hari'           => 'required|string',
+                'data.pasien.tgl_lahir'             => 'required|date',
+                'data.pasien.usia'                  => 'nullable',
+                'data.pasien.usia_detail'           => 'nullable',
+                'data.pasien.berat_lahir'           => 'nullable',
+                'data.pasien.jenis_kelamin'         => 'required|string',
+                'data.pasien.anamnesa'              => 'nullable',
+                'data.pasien.cara_pulang'           => 'required|string',
+
+                // diagnosa
+                'data.diagnosa'                     => 'required|array|min:1',
+                'data.diagnosa.*.diagnosa_name'     => 'required|string',
+                'data.diagnosa.*.kode_im'           => 'required|string',
+                'data.diagnosa.*.icd10'             => 'required|string',
+                'data.diagnosa.*.kasus'             => 'required|string',
+                'data.diagnosa.*.poli_name'         => 'required|string',
+                'data.diagnosa.*.dokter'            => 'required|string',
+
+                // tindakan
+                'data.tindakan'                     => 'required|array|min:1',
+                'data.tindakan.*.nama'              => 'required|string',
+                'data.tindakan.*.kode_im'           => 'required|string',
+                'data.tindakan.*.kode_icd9'         => 'required|string',
+                'data.tindakan.*.dokter'            => 'required|string',
+
+                'data.pemeriksaan'                  => 'nullable',
+                'data.terapi'                       => 'nullable',
+            ]);
+
+        } catch (ValidationException $e) {
+            $errorMessage = $e->validator->errors()->first();
+            throw new \Exception("Validasi gagal: " . $errorMessage,206);
+        }
     }
     
 }
