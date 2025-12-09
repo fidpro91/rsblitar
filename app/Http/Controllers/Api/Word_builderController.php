@@ -20,7 +20,7 @@ class Word_builderController
             return $fileWord; 
         } catch (\Exception $e) {
             return [
-                'code'      => $e->getCode(),   
+                'code'      => ($e->getCode() == 0 ? 501:$e->getCode()),   
                 'message'   => $e->getMessage(), 
             ];
         }
