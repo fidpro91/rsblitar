@@ -21,7 +21,7 @@ class Word_builderController
         } catch (\Exception $e) {
             return [
                 'code'      => ($e->getCode() == 0 ? 501:$e->getCode()),   
-                'message'   => $e->getMessage(), 
+                'message'   => $e->getMessage().' line '.$e->getLine().' File '.$e->getFile(), 
             ];
         }
     }
