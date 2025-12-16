@@ -79,17 +79,17 @@ class Word_builderController
             $dataPemeriksaan = collect($request->data['pemeriksaan'])
             ->map(fn($v) => "- " . $v)
             ->implode("\n");
-            $template->setValue('pemeriksaan', $dataPemeriksaan);
         }else {
             $dataPemeriksaan = $request->data['pemeriksaan'];
         }
+        $template->setValue('pemeriksaan', $dataPemeriksaan);
 
         if (is_array($request->data['terapi'])) {
             $dataTerapi = collect($request->data['terapi'])->implode(", ");
-            $template->setValue('terapi', $dataTerapi);
         }else {
             $dataTerapi = $request->data['terapi'];
         }
+        $template->setValue('terapi', $dataTerapi);
 
         $template->setValue("nama_dokter", $request->nama);
         $template->setValue("tanggal", Carbon::now()->translatedFormat('d F Y'));
