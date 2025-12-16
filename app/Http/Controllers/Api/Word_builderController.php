@@ -57,18 +57,21 @@ class Word_builderController
         ->toArray();
         $template->cloneRowAndSetValues('diag.no', $dataDiagnosa);
 
-        $dataTindakan = collect($request->data['tindakan'])
-        ->map(function ($d, $i) {
-            return [
-                "tind.no"               => $i + 1,
-                "tind.nama"             => $d['nama'],
-                "tind.kode_im"          => $d['kode_im'],
-                "tind.kode_icd9"        => $d['kode_icd9'],
-                "tind.dokter"           => $d['dokter'],
-            ];
-        })
-        ->toArray();
-        $template->cloneRowAndSetValues('tind.no', $dataTindakan);
+        $dataTindakan = [];
+        if ($request->data['tindakan']) {
+            $dataTindakan = collect($request->data['tindakan'])
+            ->map(function ($d, $i) {
+                return [
+                    "tind.no"               => $i + 1,
+                    "tind.nama"             => $d['nama'],
+                    "tind.kode_im"          => $d['kode_im'],
+                    "tind.kode_icd9"        => $d['kode_icd9'],
+                    "tind.dokter"           => $d['dokter'],
+                ];
+            })
+            ->toArray();
+            $template->cloneRowAndSetValues('tind.no', $dataTindakan);
+        }
 
         if (is_array($request->data['pemeriksaan'])) {
             $dataPemeriksaan = collect($request->data['pemeriksaan'])
@@ -133,14 +136,7 @@ class Word_builderController
                 'data.diagnosa.*.kasus'             => 'required|string',
                 'data.diagnosa.*.poli_name'         => 'required|string',
                 'data.diagnosa.*.dokter'            => 'required|string',
-
-                // tindakan
-                'data.tindakan'                     => 'required|array|min:1',
-                'data.tindakan.*.nama'              => 'required|string',
-                'data.tindakan.*.kode_im'           => 'required|string',
-                'data.tindakan.*.kode_icd9'         => 'required|string',
-                'data.tindakan.*.dokter'            => 'required|string',
-
+                
                 'data.pemeriksaan'                  => 'nullable',
                 'data.terapi'                       => 'nullable',
             ]);
