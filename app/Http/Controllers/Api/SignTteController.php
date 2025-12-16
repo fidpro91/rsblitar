@@ -202,8 +202,11 @@ class SignTteController extends BaseApiController
             }
             // --- Simpan ke storage ---
             $fileName = $request->berkas . "_" . $request->visit_id . "_" . $request->id_berkas . ".pdf";
-
-            $saved = Storage::disk('public')->put("signed/".$fileName, $fileContent);
+            $directori = "signed/$request->visit_id";
+            if (!Storage::exists($directori)) {
+                Storage::makeDirectory($directori);
+            }
+            $saved = Storage::disk('public')->put($directori."/".$fileName, $fileContent);
             if (!$saved) {
                 throw new \Exception("Gagal menyimpan file PDF ke storage",405);
             }
@@ -213,7 +216,7 @@ class SignTteController extends BaseApiController
                 "code"    => "200",
                 "message" => "Berhasil sign TTE",
                 "data"    => [
-                    "url" => request()->getSchemeAndHttpHost() . "/storage/signed/" . $fileName
+                    "url" => request()->getSchemeAndHttpHost() . "/storage/$directori/" . $fileName
                 ]
             ]);
         } catch (\Exception $e) {
