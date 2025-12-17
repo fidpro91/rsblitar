@@ -203,9 +203,6 @@ class SignTteController extends BaseApiController
             // --- Simpan ke storage ---
             $fileName = $request->berkas . "_" . $request->visit_id . "_" . $request->id_berkas . ".pdf";
             $directori = "signed/$request->visit_id";
-            if (!Storage::exists($directori)) {
-                Storage::makeDirectory($directori);
-            }
             $saved = Storage::disk('public')->put($directori."/".$fileName, $fileContent);
             if (!$saved) {
                 throw new \Exception("Gagal menyimpan file PDF ke storage",405);
