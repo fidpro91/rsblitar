@@ -73,6 +73,12 @@ class Word_builderController
             })
             ->toArray();
             $template->cloneRowAndSetValues('tind.no', $dataTindakan);
+        } else {
+            $template->setValue('tind.no', '');
+            $template->setValue('tind.nama', '');
+            $template->setValue('tind.kode_im', '');
+            $template->setValue('tind.kode_icd9', '');
+            $template->setValue('tind.dokter', '');
         }
 
         if (is_array($request->data['pemeriksaan'])) {
