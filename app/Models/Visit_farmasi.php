@@ -37,6 +37,6 @@ class Visit_farmasi extends Model
 
     public function ms_kfa()
     {
-        return $this->belongsTo(Kfa_master::class, 'item_id_kfa', 'id');
+        return $this->belongsTo(Kfa_master::class, 'item_id_kfa', 'code_kfa');
     }
 }

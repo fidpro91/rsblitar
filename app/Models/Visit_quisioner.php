@@ -16,13 +16,14 @@ class Visit_quisioner extends Model
         'nama_apoteker',
         'tgl_quisioner',
         'data_quisioner',
-        'uuid_quisioner'
+        'uuid_quisioner',
     ];
 
     protected $casts = [
         'data_quisioner' => 'array',
-        'tgl_quisioner'  => 'datetime',
+
     ];
+    public $timestamps = false;
 
     public function visit_encounter()
     {

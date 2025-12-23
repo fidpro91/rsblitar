@@ -19,7 +19,7 @@ class CompositionBundle
 
                 "identifier" => [
                     [
-                        "system" => "http://sys-ids.kemkes.go.id/composition/" . env('ORG_ID_DEV'),
+                        "system" => "http://sys-ids.kemkes.go.id/composition/" . env('ORG_ID_PROUD'),
                         "value"  => $visit->visit_id
                     ]
                 ],
@@ -66,7 +66,7 @@ class CompositionBundle
                 ],
                 "title" => "Rencana Pemulangan (Discharge Plan)",
                 "custodian" => [
-                    "reference" => "Organization/" . env('ORG_ID_DEV')
+                    "reference" => "Organization/" . env('ORG_ID_PROUD')
                 ],
                 "section" => [
                     [
@@ -84,7 +84,7 @@ class CompositionBundle
 
                         "text" => [
                             "status" => "generated",
-                            "div"    => "$visit->instruksi_pulang"
+                            "div"    => (!empty($visit->instruksi_pulang) ? $visit->instruksi_pulang : "-")
                         ]
                     ]
                 ]

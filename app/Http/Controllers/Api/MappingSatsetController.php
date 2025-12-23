@@ -74,6 +74,7 @@ class MappingSatsetController
 
     public function get_alergi() {
         $data = Ms_allergy::select([
+            'id',
             'substance_code',
             'substance_display',
             'category',

@@ -29,7 +29,7 @@ class AllergyBundle
                     "identifier" => [
                         [
                             "use" => "official",
-                            "system" => "http://sys-ids.kemkes.go.id/allergy/" . env('ORG_ID_DEV'),
+                            "system" => "http://sys-ids.kemkes.go.id/allergy/" . env('ORG_ID_PROUD'),
                             "value" => "$item->visit_id"
                         ]
                     ],

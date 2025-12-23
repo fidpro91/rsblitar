@@ -20,17 +20,16 @@ class EpisodeOfCareBundle
                 "identifier"   => [
                     [
                         "system" => "https://fhir.kemkes.go.id/id/episode-of-care",
-                        "value"  => "$visit->visit_id"
+                        "value"  => "$visit->visit_id"."EpisodeOfcare"
                     ]
-                ],
-                // ⬆⬆⬆
+                ],              
 
                 "status"       => "finished",
                 "patient"      => [
                     "reference" => "Patient/" . $visit->kode_pasien
                 ],
                 "managingOrganization" => [
-                    "reference" => "Organization/" . env('ORG_ID_DEV')
+                    "reference" => "Organization/" . env('ORG_ID_PROUD')
                 ],
                 "period" => [
                     "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)),

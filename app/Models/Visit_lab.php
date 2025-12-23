@@ -28,6 +28,9 @@ class Visit_lab extends Model
         'uuid_obs',
         'uuid_diagnostic',
         'uuid_servicereq',
+        'jml_sample',
+        'satuan_sample',
+        'status_normal'
     ];
 
     public $timestamps = false;

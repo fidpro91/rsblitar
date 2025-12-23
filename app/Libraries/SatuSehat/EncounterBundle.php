@@ -49,34 +49,34 @@ class EncounterBundle
                 "resourceType" => "Encounter",
                 "identifier" => [
                     [
-                        "system" => "http://sys-ids.kemkes.go.id/encounter/".env('ORG_ID_DEV'),
+                        "system" => "http://sys-ids.kemkes.go.id/encounter/".env('ORG_ID_PROUD'),
                         "value"  => "$visit->visit_id"
                     ]
                 ],
                 "status" => "finished",
-                "statusHistory" => [
-                    [
+                "statusHistory" => array_values(array_filter([
+                    (strtotime($visit->tgl_kunjung) && strtotime($visit->tgl_dilayani) && strtotime($visit->tgl_kunjung) <= strtotime($visit->tgl_dilayani)) ? [
                         "status" => "arrived",
                         "period" => [
                             "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)),
                             "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_dilayani))
                         ]
-                    ],
-                    [
+                    ] : null,
+                    (strtotime($visit->tgl_dilayani) && strtotime($visit->tgl_selesai_dilayani) && strtotime($visit->tgl_dilayani) <= strtotime($visit->tgl_selesai_dilayani)) ? [
                         "status" => "in-progress",
                         "period" => [
                             "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_dilayani)),
                             "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_selesai_dilayani))
                         ]
-                    ],
-                    [
+                    ] : null,
+                    (strtotime($visit->tgl_selesai_dilayani) && strtotime($visit->tgl_pulang) && strtotime($visit->tgl_selesai_dilayani) <= strtotime($visit->tgl_pulang)) ? [
                         "status" => "finished",
                         "period" => [
                             "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_selesai_dilayani)),
                             "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_pulang))
                         ]
-                    ]
-                ],
+                    ] : null
+                ])),
                 "class" => [
                     "system" => "http://terminology.hl7.org/CodeSystem/v3-ActCode",
                     "code"   => $class['code'],
@@ -135,7 +135,7 @@ class EncounterBundle
                     ]
                 ],
                 "serviceProvider" => [
-                    "reference" => "Organization/".env('ORG_ID_DEV')
+                    "reference" => "Organization/".env('ORG_ID_PROUD')
                 ]
             ],
             "request" => [

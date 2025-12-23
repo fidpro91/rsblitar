@@ -35,7 +35,7 @@ class ServiceRequestLabBundle
                     "resourceType" => "ServiceRequest",
                     "identifier" => [
                         [
-                            "system" => "http://sys-ids.kemkes.go.id/servicerequest/" . env('ORG_ID_DEV'),
+                            "system" => "http://sys-ids.kemkes.go.id/servicerequest/" . env('ORG_ID_PROUD'),
                             "value" => "$lab->visit_id"
                         ]
                     ],
@@ -103,7 +103,7 @@ class ServiceRequestLabBundle
                     "resourceType" => "Specimen",
                     "identifier" => [
                         [
-                            "system" => "http://sys-ids.kemkes.go.id/specimen/" . env('ORG_ID_DEV'),
+                            "system" => "http://sys-ids.kemkes.go.id/specimen/" . env('ORG_ID_PROUD'),
                             "value" => "$lab->visit_id"
                         ]
                     ],
@@ -215,7 +215,7 @@ class ServiceRequestLabBundle
                     "status" => "final",
                     "identifier" => [
                         [
-                            "system" => "http://sys-ids.kemkes.go.id/observation/" . env('ORG_ID_DEV'),
+                            "system" => "http://sys-ids.kemkes.go.id/observation/" . env('ORG_ID_PROUD'),
                             "value" => "$lab->visit_id"
                         ]
                     ],
@@ -257,7 +257,7 @@ class ServiceRequestLabBundle
                             "reference" => "Practitioner/{$lab->kode_dokter_lab}"
                         ],
                         [
-                            "reference" => "Organization/" . env('ORG_ID_DEV')
+                            "reference" => "Organization/" . env('ORG_ID_PROUD')
                         ]
                     ],
                     "valueQuantity" => [
@@ -286,7 +286,7 @@ class ServiceRequestLabBundle
                     "resourceType" => "DiagnosticReport",
                     "identifier" => [
                         [
-                            "system" => "http://sys-ids.kemkes.go.id/diagnostic/" . env('ORG_ID_DEV') . "/lab",
+                            "system" => "http://sys-ids.kemkes.go.id/diagnostic/" . env('ORG_ID_PROUD') . "/lab",
                             "value" => "$lab->visit_id"
                         ]
                     ],

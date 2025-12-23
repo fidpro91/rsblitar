@@ -46,8 +46,8 @@ class MedicationBundle
                     'identifier' => [
                         [
                             'use' => 'official',
-                            'system' => "http://sys-ids.kemkes.go.id/medication/" . env('ORG_ID_DEV'),
-                            'value' => "$visit->visit_id"
+                            'system' => "http://sys-ids.kemkes.go.id/medication/" . env('ORG_ID_PROUD'),
+                            'value' => "$visit->visit_id-medication"
                         ]
                     ],
                     'code' => [
@@ -121,12 +121,12 @@ class MedicationBundle
                     'identifier' => [
                         [
                             'use' => 'official',
-                            'system' => "http://sys-ids.kemkes.go.id/prescription/" . env('ORG_ID_DEV'),
+                            'system' => "http://sys-ids.kemkes.go.id/prescription/" . env('ORG_ID_PROUD'),
                             'value' => $item->sale_num
                         ],
                         [
                             'use' => 'official',
-                            'system' => "http://sys-ids.kemkes.go.id/prescription-item/" . env('ORG_ID_DEV'),
+                            'system' => "http://sys-ids.kemkes.go.id/prescription-item/" . env('ORG_ID_PROUD'),
                             'value' => $item->sale_num
                         ]
                     ],
@@ -222,7 +222,7 @@ class MedicationBundle
                             'code' => 'd'
                         ],
                         'performer' => [
-                            'reference' => 'Organization/' . env('ORG_ID_DEV')
+                            'reference' => 'Organization/' . env('ORG_ID_PROUD')
                         ]
                     ]
                 ],
@@ -289,12 +289,12 @@ class MedicationBundle
                     'resourceType' => 'MedicationDispense',
                     'identifier' => [
                         [
-                            'system' => "http://sys-ids.kemkes.go.id/prescription/" . env('ORG_ID_DEV'),
+                            'system' => "http://sys-ids.kemkes.go.id/prescription/" . env('ORG_ID_PROUD'),
                             'use' => 'official',
                             'value' => $item->sale_num
                         ],
                         [
-                            'system' => "http://sys-ids.kemkes.go.id/prescription-item/" . env('ORG_ID_DEV'),
+                            'system' => "http://sys-ids.kemkes.go.id/prescription-item/" . env('ORG_ID_PROUD'),
                             'use' => 'official',
                             'value' => $item->sale_num
                         ]

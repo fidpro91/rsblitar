@@ -105,7 +105,7 @@ class ClinicalImpressionBundle
                 'identifier'   => [
                     [
                         'use'    => 'official',
-                        'system' => 'http://sys-ids.kemkes.go.id/clinicalimpression/' . env('ORG_ID_DEV'),
+                        'system' => 'http://sys-ids.kemkes.go.id/clinicalimpression/' . env('ORG_ID_PROUD'),
                         'value'  => "$identifierId",
                     ],
                 ],

@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\ServicesBundle\CronsendBundle;
+use App\Models\Visit_encounter;
+use App\Models\Diagnosis;
+use Illuminate\Support\Str;
 use App\Illuminate\Support\Facades\DB;
 
 class SendBundleManualController extends BaseApiController
@@ -14,5 +17,4 @@ class SendBundleManualController extends BaseApiController
         return response()->json($result);
     }
 
-  
 }

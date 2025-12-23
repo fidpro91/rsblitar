@@ -78,6 +78,21 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'db_simrs' => [
+            'driver' => 'pgsql',
+            'url' => env('DATABASE_URL'),
+            'host' => env('DB_SIMRS_HOST'),
+            'port' => env('DB_SIMRS_PORT', '5432'),
+            'database' => env('DB_SIMRS_DATABASE', 'forge'),
+            'username' => env('DB_SIMRS_USERNAME', 'forge'),
+            'password' => env('DB_SIMRS_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'schema' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DATABASE_URL'),
@@ -123,7 +138,7 @@ return [
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_database_'),
+            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_') . '_database_'),
         ],
 
         'default' => [
