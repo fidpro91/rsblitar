@@ -19,4 +19,7 @@ Route::prefix('simrs')->group(function () {
     Route::get('get_all', [SimrsController::class, 'get_all']);
 });
 //TTE
-Route::post('tte/sign_tte', "SignTteController@signedpdf");
+Route::post('tte/sign_tte',"SignTteController@signedpdf");
+Route::post('tte/sign_tte_withTemplate',"SignTteController@signedWithTemplate");
+Route::post('tte/tes_pdf',"SignTteController@generateWordSimple");
+Route::post('word/generate_word', "Word_builderController@generate_word");
