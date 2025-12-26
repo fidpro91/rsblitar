@@ -175,8 +175,8 @@ class Word_builderController
         $template->setValue("tanggal", Carbon::now()->translatedFormat('d F Y'));
         // Lokasi output DOCX
         $nameFile = "tmp_$request->berkas".$request->id_berkas.$request->visit_id.time().".docx";
-        $outputPath = storage_path('app/public/'.$nameFile);
-        // $outputPath = "/mnt/docxfile/$nameFile";
+        // $outputPath = storage_path('app/public/'.$nameFile);
+        $outputPath = "/mnt/docxfile/$nameFile";
         $template->saveAs($outputPath);
 
         return [
