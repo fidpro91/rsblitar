@@ -16,6 +16,8 @@ class Word_builderController
                 $fileWord = $this->set_resume_medis($request);
             }elseif ($request->berkas == 'resep') {
                 $fileWord = $this->set_resep($request);
+            }elseif ($request->berkas == 'pemeriksaan_fisik') {
+                $fileWord = $this->set_pemeriksaan_fisik($request);
             }else {
                 throw new \Exception("Template DOCX belum di setting",201);
             }
@@ -103,6 +105,78 @@ class Word_builderController
         $nameFile = "tmp_$request->berkas".$request->id_berkas.$request->visit_id.".docx";
         // $outputPath = storage_path('app/public/'.$nameFile);
         $outputPath = "/mnt/docxfile/$nameFile";
+        $template->saveAs($outputPath);
+
+        return [
+            "code"      => 200,
+            "message"   => "OK",
+            "file"      => $nameFile,
+            "location"  => $outputPath
+        ];
+    }
+
+    private function set_pemeriksaan_fisik($request) {
+        // $this->validasi_resumeMedis($request);
+
+        $templatePath = storage_path('app/template/pemeriksaan_fisik.docx');
+        if (!file_exists($templatePath)) {
+            throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}",205);
+        }
+        $template = new TemplateProcessor($templatePath);
+        // dataPasien
+        $dataPasien = collect($request->data['pasien']);
+        foreach ($dataPasien as $key => $value) {
+            $template->setValue($key, $value);
+        }
+
+        // pemeriksaan fisik
+        $dataPemeriksaan = collect($request->data['pemeriksaan_fisik'])->map(fn($v) => $this->xmlSafe($v))->toArray();
+        foreach ($dataPemeriksaan as $key => $value) {
+            $template->setValue($key, $value);
+        }
+
+        // kondisi keluar
+        $kondisiKeluar = collect($request->data['kondisiKeluar'])->map(fn($v) => $this->xmlSafe($v))->toArray();
+        foreach ($kondisiKeluar as $key => $value) {
+            $template->setValue($key, $value);
+        }
+
+        //gambar fisik
+        $gambarPemeriksaan = $request->data['gambarPemeriksaan'];
+        if (!str_starts_with($gambarPemeriksaan, 'data:image')) {
+            throw new \Exception("Format gambar tidak valid",205);
+        }
+        $imageData = base64_decode(
+            preg_replace('#^data:image/\w+;base64,#i', '', $gambarPemeriksaan)
+        );
+        $tempPath = storage_path('app/temp/gambar.png');
+        file_put_contents($tempPath, $imageData);
+        // $tempPath = public_path('anatomi.png');
+        $template->setImageValue('gambarPemeriksaan', [
+            'path' => $tempPath,
+            'width' => 1000,
+            'height' => 500,
+            'ratio' => true
+        ]);
+
+        $dataDiagnosa = [];
+        $dataDiagnosa = collect($request->data['diagnosa'])
+        ->map(function ($d) {
+            return [
+                "diag.prioritas"        => $d['prioritas'],
+                "diag.diagnosaKerja"    => $d['diagnosa_kerja'],
+                "diag.diagnosaBanding"  => $d['diagnosa_banding'],
+            ];
+        })
+        ->toArray();
+        $template->cloneRowAndSetValues('diag.prioritas', $dataDiagnosa);
+
+        $template->setValue("nama_dokter", $request->namaDokter);
+        $template->setValue("tanggal", Carbon::now()->translatedFormat('d F Y'));
+        // Lokasi output DOCX
+        $nameFile = "tmp_$request->berkas".$request->id_berkas.$request->visit_id.time().".docx";
+        $outputPath = storage_path('app/public/'.$nameFile);
+        // $outputPath = "/mnt/docxfile/$nameFile";
         $template->saveAs($outputPath);
 
         return [
@@ -237,4 +311,8 @@ class Word_builderController
         }
     }
     
+    private function xmlSafe($value)
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    }
 }

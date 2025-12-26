@@ -179,10 +179,11 @@ class SignTteController extends BaseApiController
             $this->validateSignedPdfRequest($request);
             $urlDocx = app(Word_builderController::class);
             $urlDocx = $urlDocx->generate_word($request);
+            dd($urlDocx);
             if ($urlDocx['code'] != 200) {
                 throw new \Exception($urlDocx['message'],$urlDocx['code']);
             }
-            $post["docx"] = "https://simrs-rsudmw.blitarkota.go.id/sign/".$urlDocx['file'];
+            $post["docx"] = config('tte.domainRS').$urlDocx['file'];
             $url = config('tte.api_url');
             // --- Mengirim request ke server TTE ---
             $response = Http::asForm()->timeout(60)->post($url, $post);
