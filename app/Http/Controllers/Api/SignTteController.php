@@ -217,7 +217,7 @@ class SignTteController extends BaseApiController
                 ]
             ]);
         } catch (\Exception $e) {
-            @unlink($urlDocx['location']);
+            // @unlink($urlDocx['location']);
             $this->logging('sign TTE',[
                 "url"       => $post['api'],
                 "method"    => 'post',
