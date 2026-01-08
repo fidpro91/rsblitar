@@ -142,7 +142,7 @@ class Word_builderController
         }
 
         //gambar fisik
-        $gambarPemeriksaan = $request->data['gambarPemeriksaan'];
+        $gambarPemeriksaan = $request->data['gambarPemeriksaan']['image'];
         if (!str_starts_with($gambarPemeriksaan, 'data:image')) {
             throw new \Exception("Format gambar tidak valid",205);
         }
@@ -153,9 +153,9 @@ class Word_builderController
         file_put_contents($tempPath, $imageData);
         // $tempPath = public_path('anatomi.png');
         $template->setImageValue('gambarPemeriksaan', [
-            'path' => $tempPath,
-            'width' => 1000,
-            'height' => 500,
+            'path'      => $tempPath,
+            'width'     => (!empty($request->data['gambarPemeriksaan']['width'])?$request->data['gambarPemeriksaan']['width']:1000),
+            'height'    => (!empty($request->data['gambarPemeriksaan']['height'])?$request->data['gambarPemeriksaan']['height']:500),
             'ratio' => true
         ]);
 
