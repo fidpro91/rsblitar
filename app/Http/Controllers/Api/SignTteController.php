@@ -18,6 +18,10 @@ class SignTteController extends BaseApiController
         try {
             $this->validateSignedPdfRequest($request);
             SendTteJob::dispatch($request);
+            return response()->json([
+                "code"    => "200",
+                "message" => "TTE sedang diproses, file akan tersedia dalam beberapa saat",
+            ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 "code"    => "500",
