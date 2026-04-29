@@ -117,7 +117,6 @@ class Word_builderController
 
     private function set_pemeriksaan_fisik($request) {
         // $this->validasi_resumeMedis($request);
-
         $templatePath = storage_path('app/template/pemeriksaan_fisik.docx');
         if (!file_exists($templatePath)) {
             throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}",205);

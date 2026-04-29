@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Jobs\SendTteJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +14,21 @@ class SignTteController extends BaseApiController
 {
 
     public function signedpdf(Request $request)
+    {
+        try {
+            $this->validateSignedPdfRequest($request);
+            SendTteJob::dispatch($request);
+        } catch (\Exception $e) {
+            return response()->json([
+                "code"    => "500",
+                "message" => "Gagal memproses tanda tangan",
+                "error"   => $e->getMessage().$e->getLine(),$e->getFile()
+            ], 500);
+        }
+
+    }
+
+    public function signedpdfJob($request)
     {
         // --- Persiapan POST ---
         $post = [
