@@ -33,7 +33,7 @@ class ProsedureBundle
                     "identifier"   => [
                         [
                             "system" => "https://fhir.kemkes.go.id/id/procedure",
-                            "value"  => "$visit->visit_id",
+                            "value"  => "$procUuid"."- Procedure",
                         ]
                     ],
 

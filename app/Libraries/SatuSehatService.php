@@ -38,7 +38,7 @@ class SatuSehatService
     {
         $token = $this->getToken();
         $accessToken = $token['access_token'] ?? null;
-    
+
         if (!$accessToken) {
             return ['error' => 'Token gagal di-generate', 'detail' => $token];
         }
@@ -61,6 +61,7 @@ class SatuSehatService
                 default:
                     $response = $client->get($url, $data);
             }
+           
             $json = json_decode($response->body(), true);
 
             return is_array($json) ? $json : ['raw' => $response->body()];
@@ -71,4 +72,41 @@ class SatuSehatService
             ];
         }
     }
+
+    // public function connect(string $method, string $url, array $data = []): array
+    // {
+    //     $token = $this->getToken();
+    //     $accessToken = $token['access_token'] ?? null;
+
+    //     if (!$accessToken) {
+    //         return ['error' => 'Token gagal di-generate', 'detail' => $token];
+    //     }
+
+    //     $client = Http::withHeaders([
+    //         'Authorization' => 'Bearer ' . $accessToken,
+    //         'Accept'        => 'application/fhir+json',
+    //         'Content-Type'  => 'application/fhir+json',
+    //     ]);
+
+    //     try {
+    //         $method = strtolower($method);
+
+    //         if ($method === 'get') {
+    //             // 🔑 PENTING: GET TANPA $data
+    //             $response = $client->get($url);
+    //         } else {
+    //             $response = $client->{$method}($url, $data);
+    //         }
+
+    //         return [
+    //             'status' => $response->status(),
+    //             'body'   => $response->json(),
+    //         ];
+    //     } catch (\Throwable $e) {
+    //         return [
+    //             'error'   => true,
+    //             'message' => $e->getMessage(),
+    //         ];
+    //     }
+    // }
 }

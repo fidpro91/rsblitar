@@ -47,7 +47,7 @@ class MedicationBundle
                         [
                             'use' => 'official',
                             'system' => "http://sys-ids.kemkes.go.id/medication/" . env('ORG_ID_PROUD'),
-                            'value' => "$visit->visit_id-medication"
+                            'value' => "$item->id.'-medication"
                         ]
                     ],
                     'code' => [
@@ -122,12 +122,12 @@ class MedicationBundle
                         [
                             'use' => 'official',
                             'system' => "http://sys-ids.kemkes.go.id/prescription/" . env('ORG_ID_PROUD'),
-                            'value' => $item->sale_num
+                            'value' => $item->sale_num.'- MedicationRequest'
                         ],
                         [
                             'use' => 'official',
                             'system' => "http://sys-ids.kemkes.go.id/prescription-item/" . env('ORG_ID_PROUD'),
-                            'value' => $item->sale_num
+                            'value' => $item->id . '- MedicationRequest'
                         ]
                     ],
                     'status' => 'completed',
@@ -291,12 +291,12 @@ class MedicationBundle
                         [
                             'system' => "http://sys-ids.kemkes.go.id/prescription/" . env('ORG_ID_PROUD'),
                             'use' => 'official',
-                            'value' => $item->sale_num
+                            'value' => $item->sale_num.' - MedicationDispense'
                         ],
                         [
                             'system' => "http://sys-ids.kemkes.go.id/prescription-item/" . env('ORG_ID_PROUD'),
                             'use' => 'official',
-                            'value' => $item->sale_num
+                            'value' => $item->id.' - MedicationDispense'
                         ]
                     ],
                     'status' => 'completed',

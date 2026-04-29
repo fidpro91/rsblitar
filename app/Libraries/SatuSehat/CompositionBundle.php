@@ -20,7 +20,7 @@ class CompositionBundle
                 "identifier" => [
                     [
                         "system" => "http://sys-ids.kemkes.go.id/composition/" . env('ORG_ID_PROUD'),
-                        "value"  => $visit->visit_id
+                        "value"  => "$visit->uuid_composition"."- Composition"
                     ]
                 ],
 
