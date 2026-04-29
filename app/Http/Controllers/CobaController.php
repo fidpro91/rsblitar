@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendTteJob;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpWord\PhpWord;
@@ -228,5 +229,11 @@ class CobaController extends Controller
     {
         $urlWord = app(\App\Http\Controllers\Api\Word_builderController::class);
         return $urlWord->generate_word($request);
+    }
+
+    public function tes_jobs(Request $request)
+    {
+        SendTteJob::dispatch();
+        return "OK";
     }
 }

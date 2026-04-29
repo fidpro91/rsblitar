@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Jobs\SendTteJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +14,21 @@ class SignTteController extends BaseApiController
 {
 
     public function signedpdf(Request $request)
+    {
+        try {
+            $this->validateSignedPdfRequest($request);
+            SendTteJob::dispatch($request);
+        } catch (\Exception $e) {
+            return response()->json([
+                "code"    => "500",
+                "message" => "Gagal memproses tanda tangan",
+                "error"   => $e->getMessage().$e->getLine(),$e->getFile()
+            ], 500);
+        }
+
+    }
+
+    public function signedpdfJob($request)
     {
         // --- Persiapan POST ---
         $post = [
@@ -182,7 +198,7 @@ class SignTteController extends BaseApiController
             if ($urlDocx['code'] != 200) {
                 throw new \Exception($urlDocx['message'],$urlDocx['code']);
             }
-            $post["docx"] = "https://simrs-rsudmw.blitarkota.go.id/sign/".$urlDocx['file'];
+            $post["docx"] = config('tte.domainRS').$urlDocx['file'];
             $url = config('tte.api_url');
             // --- Mengirim request ke server TTE ---
             $response = Http::asForm()->timeout(60)->post($url, $post);
@@ -193,7 +209,13 @@ class SignTteController extends BaseApiController
             $data = $response->json();
             // dd($response->json(), $response->body(), $response->status(), $response->headers());
             if (!isset($data['signed']) || trim($data['signed']) == "") {
-                throw new \Exception("URL PDF 'signed' tidak valid dari server TTE",403);
+                $error = $response->json();
+                if (empty($error)) {
+                    throw new \Exception("URL PDF 'signed' tidak valid dari server TTE. ",403);
+                }else{
+                    $error=json_encode($error);
+                    throw new \Exception($error,403);
+                }
             }
             // --- Download file hasil sign ---
             $fileContent = @file_get_contents($data['signed']);
@@ -217,7 +239,7 @@ class SignTteController extends BaseApiController
                 ]
             ]);
         } catch (\Exception $e) {
-            @unlink($urlDocx['location']);
+            // @unlink($urlDocx['location']);
             $this->logging('sign TTE',[
                 "url"       => $post['api'],
                 "method"    => 'post',
