@@ -17,7 +17,14 @@ class SendBundleSatusehat extends Command
         $chunk = (int) $this->option('chunk');
         $service = new CronsendBundle();
 
+        $this->info("🚀 Mulai proses kirim bundle...");
+        $this->info("⏰ Waktu mulai: " . now());
+
         Visit_encounter::where('is_send', false)
+            ->whereNotNull('tgl_kunjung')
+            ->whereNotNull('tgl_dilayani')
+            ->whereNotNull('tgl_selesai_dilayani')
+            ->whereNotNull('tgl_pulang')
             ->orderBy('id')
             ->chunkById($chunk, function ($visits) use ($service) {
 
@@ -26,14 +33,15 @@ class SendBundleSatusehat extends Command
 
                     try {
                         $service->prepareAndSendBundle($visitId);
+                        $this->info("✅ Sukses visit_id: {$visitId}");
                     } catch (\Exception $e) {
                         Log::error("Gagal kirim visit_id={$visitId} : " . $e->getMessage());
-                    } 
+                    }
                     $visit->is_send = true;
                     $visit->save();
                 }
             });
 
-        return 0;
+        $this->info("🎉 Selesai kirim bundle");
     }
 }

@@ -106,7 +106,7 @@ class ClinicalImpressionBundle
                     [
                         'use'    => 'official',
                         'system' => 'http://sys-ids.kemkes.go.id/clinicalimpression/' . env('ORG_ID_PROUD'),
-                        'value'  => "$identifierId",
+                        'value'  => "$clinicalImpressionUuid"."- ClinicalImpression",
                     ],
                 ],
                 'status'      => 'completed',

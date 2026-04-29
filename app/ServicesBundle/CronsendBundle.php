@@ -15,7 +15,10 @@ use App\Libraries\SatuSehat\ClinicalImpressionBundle;
 use App\Libraries\SatuSehat\EpisodeOfCareBundle;
 use App\Libraries\SatuSehat\ProsedureBundle;
 use App\Libraries\SatuSehatService;
+use App\Libraries\SatuSehat\ImunisasiBundle;
+use App\Libraries\SatuSehat\RadiologiBundle;
 use App\Models\Respon_satusehat;
+
 
 class CronsendBundle
 {
@@ -42,6 +45,8 @@ class CronsendBundle
             ClinicalImpressionBundle::class,
             EpisodeOfCareBundle::class,
             ProsedureBundle::class,
+           // ImunisasiBundle::class,
+          //  RadiologiBundle::class
         ];
 
         try {
@@ -62,11 +67,11 @@ class CronsendBundle
                 "type"         => "transaction",
                 "entry"        => $entries
             ];
-
+            //  return response()->json($combinedBundle);die;
             // kirim ke SatuSehat
             $response = $this->satusehat->connect('post', $url, $combinedBundle);
             $pasienId = null;
-            if (!empty($entries)) {               
+            if (!empty($entries)) {
                 foreach ($entries as $entry) {
                     if (isset($entry['resource']['resourceType']) && $entry['resource']['resourceType'] === 'Encounter') {
                         $pasienId = $entry['resource']['subject']['reference'] ?? null;
@@ -95,7 +100,7 @@ class CronsendBundle
                         'respon_all'    => $resp,
                     ]);
                 }
-            } else {                
+            } else {
                 Respon_satusehat::create([
                     'status'        => 'error',
                     'resourcetype'  => 'BundleResponse',
@@ -131,13 +136,13 @@ class CronsendBundle
             ];
         }
     }
-    
+
     private function safeBuild(callable $builderCallable, $visitId): array
     {
         try {
             $result = call_user_func($builderCallable, $visitId);
             return $this->cekBundle($result);
-        } catch (\Throwable $e) {           
+        } catch (\Throwable $e) {
             return [];
         }
     }
@@ -149,7 +154,7 @@ class CronsendBundle
         if (is_object($bundle)) {
             if (method_exists($bundle, 'toArray')) {
                 $bundle = $bundle->toArray();
-            } else {            
+            } else {
                 $bundle = (array) $bundle;
             }
         }
@@ -157,7 +162,7 @@ class CronsendBundle
             return $bundle;
         }
 
-        if (is_array($bundle) && (isset($bundle['resource']) || isset($bundle['resourceType']))) {         
+        if (is_array($bundle) && (isset($bundle['resource']) || isset($bundle['resourceType']))) {
             if (isset($bundle['resourceType']) && $bundle['resourceType'] === 'Bundle' && isset($bundle['entry']) && is_array($bundle['entry'])) {
                 return $bundle['entry'];
             }

@@ -36,7 +36,7 @@ class ServiceRequestLabBundle
                     "identifier" => [
                         [
                             "system" => "http://sys-ids.kemkes.go.id/servicerequest/" . env('ORG_ID_PROUD'),
-                            "value" => "$lab->visit_id"
+                            "value" => "$lab->id - ServiceRequest"
                         ]
                     ],
                     "status" => "active",
@@ -104,7 +104,7 @@ class ServiceRequestLabBundle
                     "identifier" => [
                         [
                             "system" => "http://sys-ids.kemkes.go.id/specimen/" . env('ORG_ID_PROUD'),
-                            "value" => "$lab->visit_id"
+                            "value" => "$lab->id - Specimen"
                         ]
                     ],
                     "status" => "available",
@@ -216,7 +216,7 @@ class ServiceRequestLabBundle
                     "identifier" => [
                         [
                             "system" => "http://sys-ids.kemkes.go.id/observation/" . env('ORG_ID_PROUD'),
-                            "value" => "$lab->visit_id"
+                            "value" => "$lab->id - Observation"
                         ]
                     ],
                     "basedOn" => [
@@ -287,7 +287,7 @@ class ServiceRequestLabBundle
                     "identifier" => [
                         [
                             "system" => "http://sys-ids.kemkes.go.id/diagnostic/" . env('ORG_ID_PROUD') . "/lab",
-                            "value" => "$lab->visit_id"
+                            "value" => "$lab->id - DiagnosticReport"
                         ]
                     ],
                     "basedOn" => [

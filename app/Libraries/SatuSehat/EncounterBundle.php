@@ -50,7 +50,7 @@ class EncounterBundle
                 "identifier" => [
                     [
                         "system" => "http://sys-ids.kemkes.go.id/encounter/".env('ORG_ID_PROUD'),
-                        "value"  => "$visit->visit_id"
+                        "value"  => "$visit->id - encounter"
                     ]
                 ],
                 "status" => "finished",

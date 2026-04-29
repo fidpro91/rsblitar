@@ -7,12 +7,39 @@ use App\Illuminate\Support\Facades\DB;
 
 class MastersatsetController extends BaseApiController
 {
-    public function search_practitioner()
+    public function search_practitioner($nik)
     {
-        $url = "https://api-satusehat.kemkes.go.id/fhir-r4/v1//Location?name=depo";
+
+
+        $url = "https://api-satusehat.kemkes.go.id/fhir-r4/v1/Practitioner?identifier=https://fhir.kemkes.go.id/id/nik|$nik";
+        //dd($url);
         $response = $this->satusehat->connect('get', $url);
         return response()->json($response);
     }
+
+    public function search_patient(Request $request)
+    {
+        $name = $request->query('name');
+        $ttl = $request->query('birthdate');
+        $gender = $request->query('gender');
+        $nik = $request->query('nik');
+
+        $url = "https://api-satusehat.kemkes.go.id/fhir-r4/v1/Patient?name=" . $name . "&birthdate=" . $ttl . "&gender=" . $gender . "&nik" . $nik;
+
+        $response = $this->satusehat->connect('get', $url);
+        return response()->json($response);
+    }
+
+    public function serachPxbynik($nik)
+    {
+
+        $url = "https://api-satusehat.kemkes.go.id/fhir-r4/v1/Patient?identifier=https://fhir.kemkes.go.id/id/nik|$nik";
+
+        $data = $this->satusehat->connect('get', $url, null);
+
+        return $data;
+    }
+
 
     public function createlocation(Request $request)
     {
@@ -21,16 +48,16 @@ class MastersatsetController extends BaseApiController
             "resourceType" => "Location",
             "identifier" => [
                 [
-                    "system" => "http://sys-ids.kemkes.go.id/location/".ENV('ORG_ID_PROUD'),
-                    "value" => "DIGD"
+                    "system" => "http://sys-ids.kemkes.go.id/location/" . ENV('ORG_ID_PROUD'),
+                    "value" => "DRI"
                 ]
             ],
             "status" => "active",
-            "name" => "DEPO IGD",
-            "description" => "Ruang DEPO IGD",
+            "name" => "DEPO RAWAT INAP",
+            "description" => "Ruang DEPO RAWAT INAP",
             "mode" => "instance",
             "telecom" => [
-               
+
                 [
                     "system" => "fax",
                     "value" => "(0342) 801118",
@@ -88,18 +115,16 @@ class MastersatsetController extends BaseApiController
                 ]
             ],
             "position" => [
-                "longitude" => 112.614799,
-                "latitude" => -7.816594,
+                "longitude" => 112.181044,
+                "latitude" => -8.109486,
                 "altitude" => 0
             ],
             "managingOrganization" => [
-                "reference" => "Organization/". ENV('ORG_ID_PROUD')
+                "reference" => "Organization/" . ENV('ORG_ID_PROUD')
             ]
         ];
 
         $response = $this->satusehat->connect('post', $url, $data);
         return response()->json($response);
     }
-
-
 }

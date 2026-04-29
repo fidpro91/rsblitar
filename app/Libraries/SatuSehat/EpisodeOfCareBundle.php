@@ -20,7 +20,7 @@ class EpisodeOfCareBundle
                 "identifier"   => [
                     [
                         "system" => "https://fhir.kemkes.go.id/id/episode-of-care",
-                        "value"  => "$visit->visit_id"."EpisodeOfcare"
+                        "value"  => "$uuidepisode"."- EpisodeOfcare"
                     ]
                 ],              
 

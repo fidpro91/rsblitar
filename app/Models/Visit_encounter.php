@@ -59,4 +59,10 @@ class Visit_encounter extends Model
     {
         return $this->hasMany(Visit_icd9::class, 'visit_id', 'visit_id');
     }
+
+     public function visit_radiologi()
+    {
+        return $this->hasMany(Visit_radiologi::class, 'visit_id', 'visit_id');
+    }
+
 }
