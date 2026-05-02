@@ -160,71 +160,71 @@ class MedicationBundle
                         'reference' => "Practitioner/{$item->kode_dokter}",
                         'display' => $item->dokter_peresep
                     ],
-                    'dosageInstruction' => [
-                        [
-                            'sequence' => 1,
-                            'patientInstruction' => $item->dosis ?? ($kfa->dose_per_unit ?? null),
-                            'timing' => [
-                                'repeat' => [
-                                    'frequency' => 1,
-                                    'period' => 1,
-                                    'periodUnit' => 'd'
-                                ]
-                            ],
-                            'route' => [
-                                'coding' => [
-                                    [
-                                        'system' => 'http://www.whocc.no/atc',
-                                        'code' => 'O',
-                                        'display' => 'Oral'
-                                    ]
-                                ]
-                            ],
-                            'doseAndRate' => [
-                                [
-                                    'type' => [
-                                        'coding' => [
-                                            [
-                                                'system' => 'http://terminology.hl7.org/CodeSystem/dose-rate-type',
-                                                'code' => 'ordered',
-                                                'display' => 'Ordered'
-                                            ]
-                                        ]
-                                    ],
-                                    'doseQuantity' => [
-                                        'value' => (float) ($item->sale_qty ?? 1),
-                                        'unit' => $kfa->dose_per_unit ?? ($item->dosis ?? 'TAB'),
-                                        'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
-                                        'code' => $kfa->dose_per_unit ?? 'TAB'
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ],
-                    'dispenseRequest' => [
-                        'dispenseInterval' => [
-                            'value' => 1,
-                            'unit' => 'days',
-                            'system' => 'http://unitsofmeasure.org',
-                            'code' => 'd'
-                        ],
-                        'numberOfRepeatsAllowed' => 0,
-                        'quantity' => [
-                            'value' => (float) ($item->sale_qty ?? 1),
-                            'unit' => $kfa->dose_per_unit ?? 'TAB',
-                            'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
-                            'code' => $kfa->dose_per_unit ?? 'TAB'
-                        ],
-                        'expectedSupplyDuration' => [
-                            'value' => 30,
-                            'unit' => 'days',
-                            'system' => 'http://unitsofmeasure.org',
-                            'code' => 'd'
-                        ],
-                        'performer' => [
-                            'reference' => 'Organization/' . env('ORG_ID_PROUD')
-                        ]
-                    ]
+                    // 'dosageInstruction' => [
+                    //     [
+                    //         'sequence' => 1,
+                    //         'patientInstruction' => $item->dosis ?? ($kfa->dose_per_unit ?? null),
+                    //         'timing' => [
+                    //             'repeat' => [
+                    //                 'frequency' => 1,
+                    //                 'period' => 1,
+                    //                 'periodUnit' => 'd'
+                    //             ]
+                    //         ],
+                    //         'route' => [
+                    //             'coding' => [
+                    //                 [
+                    //                     'system' => 'http://www.whocc.no/atc',
+                    //                     'code' => 'O',
+                    //                     'display' => 'Oral'
+                    //                 ]
+                    //             ]
+                    //         ],
+                    //         'doseAndRate' => [
+                    //             [
+                    //                 'type' => [
+                    //                     'coding' => [
+                    //                         [
+                    //                             'system' => 'http://terminology.hl7.org/CodeSystem/dose-rate-type',
+                    //                             'code' => 'ordered',
+                    //                             'display' => 'Ordered'
+                    //                         ]
+                    //                     ]
+                    //                 ],
+                    //                 'doseQuantity' => [
+                    //                     'value' => (float) ($item->sale_qty ?? 1),
+                    //                     'unit' => $kfa->dose_per_unit ?? ($item->dosis ?? 'TAB'),
+                    //                     'system' => 'http://unitsofmeasure.org',
+                    //                     'code' => $kfa->dose_per_unit ?? 'TAB'
+                    //                 ]
+                    //             ]
+                    //         ]
+                    //     ]
+                    // ],
+                    // 'dispenseRequest' => [
+                    //     'dispenseInterval' => [
+                    //         'value' => 1,
+                    //         'unit' => 'days',
+                    //         'system' => 'http://unitsofmeasure.org',
+                    //         'code' => 'd'
+                    //     ],
+                    //     'numberOfRepeatsAllowed' => 0,
+                    //     'quantity' => [
+                    //         'value' => (float) ($item->sale_qty ?? 1),
+                    //         'unit' => $kfa->dose_per_unit ?? 'TAB',
+                    //         'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
+                    //         'code' => $kfa->dose_per_unit ?? 'TAB'
+                    //     ],
+                    //     'expectedSupplyDuration' => [
+                    //         'value' => 30,
+                    //         'unit' => 'days',
+                    //         'system' => 'http://unitsofmeasure.org',
+                    //         'code' => 'd'
+                    //     ],
+                    //     'performer' => [
+                    //         'reference' => 'Organization/' . env('ORG_ID_PROUD')
+                    //     ]
+                    // ]
                 ],
                 'request' => [
                     'method' => 'POST',
@@ -337,11 +337,11 @@ class MedicationBundle
                             'reference' => 'MedicationRequest/' . $item->uuid_med_request
                         ]
                     ],
-                    'quantity' => [
-                        'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
-                        'code' => $uom['name'] ?? 'TAB',
-                        'value' => (float) ($item->sale_qty ?? 1)
-                    ],
+                    // 'quantity' => [
+                    //     'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
+                    //     'code' => $uom['name'] ?? 'TAB',
+                    //     'value' => (float) ($item->sale_qty ?? 1)
+                    // ],
                     'whenPrepared' => $waktupembuatan,
                     'whenHandedOver' => $obat_diberikan,
                 ],

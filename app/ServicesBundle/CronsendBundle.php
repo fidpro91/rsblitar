@@ -67,7 +67,7 @@ class CronsendBundle
                 "type"         => "transaction",
                 "entry"        => $entries
             ];
-            //  return response()->json($combinedBundle);die;
+          //    return response()->json($combinedBundle);die;
             // kirim ke SatuSehat
             $response = $this->satusehat->connect('post', $url, $combinedBundle);
             $pasienId = null;
