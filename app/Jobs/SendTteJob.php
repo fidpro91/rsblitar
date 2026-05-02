@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 
 class SendTteJob implements ShouldQueue
 {
@@ -31,7 +32,19 @@ class SendTteJob implements ShouldQueue
      * @return void
      */
     public function handle(TteService $tteService)
-    {
-         $tteService->signPdf($this->data);
+    {   
+        $counterKey = 'tte_counter';
+        $cooldownKey = 'tte_cooldown';
+        if (Cache::has($cooldownKey)) {
+            return $this->release(3);
+        }
+        $count = Cache::increment($counterKey);
+        Cache::put($counterKey, $count, 300);
+        if ($count >= 20) {
+            Cache::forget($counterKey);
+            Cache::put($cooldownKey, true, 30);
+            return $this->release(30);
+        }
+        $tteService->signPdf($this->data);
     }
 }

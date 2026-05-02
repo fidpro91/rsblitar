@@ -9,7 +9,7 @@ use PhpOffice\PhpWord\TemplateProcessor;
 
 class Word_builderController
 {
-    public function generate_word(Request $request)
+    public function generate_word($request)
     {
         try {
             if ($request->berkas == 'resume_medis') {

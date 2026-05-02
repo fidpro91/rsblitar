@@ -4,12 +4,14 @@ namespace App\Services;
 use App\Http\Controllers\Api\Word_builderController;
 use App\Models\Log_http;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class TteService
 {
     public function signPdf($request)
     {
+        $request = new Request($request);
         $post = [
             "api"           => config('tte.signDocx'),
             "nik"           => $request->nik,
@@ -54,7 +56,7 @@ class TteService
             }
             @unlink($urlDocx['location']);
             // --- Return sukses ---
-            return response()->json([
+            return ([
                 "code"    => "200",
                 "message" => "Berhasil sign TTE",
                 "data"    => [
@@ -72,11 +74,11 @@ class TteService
                 "error_message" => $e->getMessage()
             ]);
             
-            return response()->json([
+            return ([
                 "code"    => $e->getCode(),
                 "message" => "Gagal memproses tanda tangan",
                 "error"   => $e->getMessage()
-            ], 500);
+            ]);
         }
     }
 
