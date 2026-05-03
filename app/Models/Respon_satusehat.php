@@ -23,7 +23,7 @@ class Respon_satusehat extends Model
         'visit_id',
         'respon_all',
     ];
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $casts = [
         'resourceid' => 'string',
