@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Word_builderController;
 use App\Models\Log_http;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class TteService
@@ -55,13 +56,23 @@ class TteService
                 throw new \Exception("Gagal menyimpan file PDF ke storage",405);
             }
             @unlink($urlDocx['location']);
+            $ehos = DB::connection('db_simrs');
+            $pathTTE = request()->getSchemeAndHttpHost() . "/storage/$directori/" . $fileName;
+            $ehos->table("yanmed.visit")
+                 ->where('visit_id', $request->visit_id)
+                 ->update([
+                    'tteresume'         => $pathTTE,
+                    'respond_message'   => 'Berhasil sign TTE',
+                    'respond_status'    => '200',
+                ]);
             // --- Return sukses ---
-            return ([
-                "code"    => "200",
-                "message" => "Berhasil sign TTE",
-                "data"    => [
-                    "url" => request()->getSchemeAndHttpHost() . "/storage/$directori/" . $fileName
-                ]
+            $this->logging('sign TTE',[
+                "url"       => $post['api'],
+                "method"    => 'post',
+                "code"      => 200,
+                "body"      => json_encode($data),
+                "status"    => 200,
+                "error_message" => "Success"
             ]);
         } catch (\Exception $e) {
             // @unlink($urlDocx['location']);
@@ -72,12 +83,6 @@ class TteService
                 "body"      => json_encode($post),
                 "status"    => 500,
                 "error_message" => $e->getMessage()
-            ]);
-            
-            return ([
-                "code"    => $e->getCode(),
-                "message" => "Gagal memproses tanda tangan",
-                "error"   => $e->getMessage()
             ]);
         }
     }
