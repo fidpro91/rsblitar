@@ -115,8 +115,8 @@ class EncounterBundle
                         "coding" => [
                             [
                                 "system"  => "http://terminology.hl7.org/CodeSystem/discharge-disposition",
-                                "code"    => "self-care",
-                                "display" => "Self care"
+                                "code"    => "home",
+                                "display" => "Home"
                             ]
                         ],
                         "text" => "Atas Izin Dokter"

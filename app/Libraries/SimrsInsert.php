@@ -16,20 +16,15 @@ use Illuminate\Support\Str;
 
 class SimrsInsert
 {
-    /**
-     * Insert data SIMRS per chunk agar efisien
-     * @param array $data
-     * @param int $chunkSize
-     */
+
     public static function insert(array $data, int $chunkSize = 100)
     {
-        // Helper untuk proses chunk pada array
+        
         $chunkArray = function($array, $size) {
             if (!is_array($array)) return [$array];
             return array_chunk($array, $size);
         };
 
-        // visit_encounter
         if (!empty($data['visit_encounter'])) {
             $rows = $data['visit_encounter'];
             foreach ($chunkArray($rows, $chunkSize) as $chunk) {

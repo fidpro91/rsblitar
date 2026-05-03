@@ -42,7 +42,7 @@ class ConditionBundle
                     "code" => [
                         "coding" => [
                             [
-                                "system"  => "http://snomed.info/sct",
+                                "system"  => "http://hl7.org/fhir/sid/icd-10",
                                 "code"    => $diag->code,
                                 "display" => $diag->dx_name
                             ]
