@@ -3,6 +3,7 @@ namespace App\Services;
 
 use App\Http\Controllers\Api\Word_builderController;
 use App\Models\Log_http;
+use App\Models\Tte_successfully;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +74,12 @@ class TteService
                 "body"      => json_encode($data),
                 "status"    => 200,
                 "error_message" => "Success"
+            ], $request->visit_id);
+            // --- Simpan ke tabel tte_successfully ---
+            Tte_successfully::create([
+                'visit_id'  => $request->visit_id,
+                'doc_id'    => $request->id_berkas,
+                'path_tte'  => $pathTTE,
             ]);
         } catch (\Exception $e) {
             // @unlink($urlDocx['location']);
@@ -83,11 +90,11 @@ class TteService
                 "body"      => json_encode($post),
                 "status"    => 500,
                 "error_message" => $e->getMessage()
-            ]);
+            ], $request->visit_id);
         }
     }
 
-    protected function logging($service_name, $data = null)
+    protected function logging($service_name, $data = null,$visit_id)
     {
         Log_http::create(
             [
@@ -97,6 +104,7 @@ class TteService
                 'response_code'     => $data['code'],
                 'response_body'     => $data['body'],
                 'status'            => $data['status'],
+                'fk_id'             => $visit_id,
                 'response_message'  => $data['error_message'],
             ]
         );

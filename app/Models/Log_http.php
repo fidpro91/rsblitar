@@ -17,6 +17,7 @@ class Log_http extends Model
         'response_code',
         'response_body',
         'status',
+        'fk_id',
         'response_message',
     ];
 }
