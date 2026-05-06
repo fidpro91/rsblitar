@@ -14,6 +14,7 @@ class TteService
     public function signPdf($request)
     {
         $request = new Request($request);
+        $ehos = DB::connection('db_simrs');
         $post = [
             "api"           => config('tte.signDocx'),
             "nik"           => $request->nik,
@@ -57,7 +58,6 @@ class TteService
                 throw new \Exception("Gagal menyimpan file PDF ke storage",405);
             }
             @unlink($urlDocx['location']);
-            $ehos = DB::connection('db_simrs');
             $pathTTE = request()->getSchemeAndHttpHost() . "/storage/$directori/" . $fileName;
             $ehos->table("yanmed.visit")
                  ->where('visit_id', $request->visit_id)
@@ -91,6 +91,13 @@ class TteService
                 "status"    => 500,
                 "error_message" => $e->getMessage()
             ], $request->visit_id);
+
+            $ehos->table("yanmed.visit")
+                 ->where('visit_id', $request->visit_id)
+                 ->update([
+                    'respond_message'   => $e->getMessage(),
+                    'respond_status'    => '500',
+                ]);
         }
     }
 
