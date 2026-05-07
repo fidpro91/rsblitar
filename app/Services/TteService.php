@@ -58,7 +58,7 @@ class TteService
                 throw new \Exception("Gagal menyimpan file PDF ke storage",405);
             }
             @unlink($urlDocx['location']);
-            $pathTTE = request()->getSchemeAndHttpHost() . "/storage/$directori/" . $fileName;
+            $pathTTE = config('tte.ip_server') . "/storage/$directori/" . $fileName;
             $ehos->table("yanmed.visit")
                  ->where('visit_id', $request->visit_id)
                  ->update([
