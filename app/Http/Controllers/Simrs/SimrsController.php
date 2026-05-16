@@ -35,21 +35,22 @@ class SimrsController extends Controller
             ];
 
            //  dd($dataInsert);
-            SimrsInsert::insert($dataInsert);
+          //  SimrsInsert::insert($dataInsert);
         });
    
         return response()->json([
-            'message' => 'Data berhasil diinsert (chunked)'
+            'message' => 'Data berhasil diinsert (chunked)',
+            "data" => $simrsData
         ]);
     }
 
     public function getSimrsData($withResponse = true)
     {
-        $start = Carbon::now()->subDays(4)->startOfDay();
-        $end = Carbon::now()->subDays(4)->endOfDay();
+        $start = Carbon::now()->subDays(5)->startOfDay();
+        $end = Carbon::now()->subDays(5)->endOfDay();
 
         $simrsData = DB::connection('db_simrs')
-            ->table('yanmed.visit as v')
+            ->table('yanmedx.visit as v')
             ->join('yanmed.services as s', 'v.visit_id', '=', 's.visit_id')
             ->join('yanmed.patient as px', 'v.px_id', '=', 'px.px_id')
             ->join('kemkes.patient as p', 'px.px_id', '=', 'p.px_id_simrs')
