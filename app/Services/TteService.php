@@ -3,8 +3,10 @@ namespace App\Services;
 
 use App\Http\Controllers\Api\Word_builderController;
 use App\Models\Log_http;
+use App\Models\Tte_successfully;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class TteService
@@ -12,6 +14,7 @@ class TteService
     public function signPdf($request)
     {
         $request = new Request($request);
+        $ehos = DB::connection('db_simrs');
         $post = [
             "api"           => config('tte.signDocx'),
             "nik"           => $request->nik,
@@ -55,13 +58,28 @@ class TteService
                 throw new \Exception("Gagal menyimpan file PDF ke storage",405);
             }
             @unlink($urlDocx['location']);
+            $pathTTE = config('tte.ip_server') . "storage/$directori/" . $fileName;
+            $ehos->table("yanmed.visit")
+                 ->where('visit_id', $request->visit_id)
+                 ->update([
+                    'tteresume'         => $pathTTE,
+                    'respond_message'   => 'Berhasil sign TTE',
+                    'respond_status'    => '200',
+                ]);
             // --- Return sukses ---
-            return ([
-                "code"    => "200",
-                "message" => "Berhasil sign TTE",
-                "data"    => [
-                    "url" => request()->getSchemeAndHttpHost() . "/storage/$directori/" . $fileName
-                ]
+            $this->logging('sign TTE',[
+                "url"       => $post['api'],
+                "method"    => 'post',
+                "code"      => 200,
+                "body"      => json_encode($data),
+                "status"    => 200,
+                "error_message" => "Success"
+            ], $request->visit_id);
+            // --- Simpan ke tabel tte_successfully ---
+            Tte_successfully::create([
+                'visit_id'  => $request->visit_id,
+                'doc_id'    => $request->id_berkas,
+                'path_tte'  => $pathTTE,
             ]);
         } catch (\Exception $e) {
             // @unlink($urlDocx['location']);
@@ -72,17 +90,18 @@ class TteService
                 "body"      => json_encode($post),
                 "status"    => 500,
                 "error_message" => $e->getMessage()
-            ]);
-            
-            return ([
-                "code"    => $e->getCode(),
-                "message" => "Gagal memproses tanda tangan",
-                "error"   => $e->getMessage()
-            ]);
+            ], $request->visit_id);
+
+            $ehos->table("yanmed.visit")
+                 ->where('visit_id', $request->visit_id)
+                 ->update([
+                    'respond_message'   => $e->getMessage(),
+                    'respond_status'    => '500',
+                ]);
         }
     }
 
-    protected function logging($service_name, $data = null)
+    protected function logging($service_name, $data = null,$visit_id)
     {
         Log_http::create(
             [
@@ -92,6 +111,7 @@ class TteService
                 'response_code'     => $data['code'],
                 'response_body'     => $data['body'],
                 'status'            => $data['status'],
+                'fk_id'             => $visit_id,
                 'response_message'  => $data['error_message'],
             ]
         );

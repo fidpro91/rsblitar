@@ -116,7 +116,7 @@ class SignTteController extends BaseApiController
             "jenis_berkas" => "required|in:pdf,docx",
             "berkas"       => "required",
             "visit_id"     => "required|numeric",
-            "id_berkas"    => "required|numeric",
+            "id_berkas"    => "required",
         ];
 
         $messages = [
