@@ -50,7 +50,7 @@ class SimrsController extends Controller
         $end = Carbon::now()->subDays(7)->endOfDay();
 
         $simrsData = DB::connection('db_simrs')
-            ->table('yanmedx.visit as v')
+            ->table('yanmed.visit as v')
             ->join('yanmed.services as s', 'v.visit_id', '=', 's.visit_id')
             ->join('yanmed.patient as px', 'v.px_id', '=', 'px.px_id')
             ->join('kemkes.patient as p', 'px.px_id', '=', 'p.px_id_simrs')
