@@ -35,7 +35,7 @@ class SimrsController extends Controller
             ];
 
            //  dd($dataInsert);
-          //  SimrsInsert::insert($dataInsert);
+            SimrsInsert::insert($dataInsert);
         });
    
         return response()->json([
