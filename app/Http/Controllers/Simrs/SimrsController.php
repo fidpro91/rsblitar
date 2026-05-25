@@ -34,7 +34,7 @@ class SimrsController extends Controller
                 'visit_radiologi' => $this->visitRadiologi($visitIds, false)->toArray(),
             ];
 
-           //  dd($dataInsert);
+           
             SimrsInsert::insert($dataInsert);
         });
    
@@ -79,6 +79,7 @@ class SimrsController extends Controller
             ->whereIn('un.unit_type', [21, 23, 67])
             ->whereNull('adm.admission_id')
             ->where('s.srv_status', '!=', 35)
+            ->distinct()
             ->get();
 
         if ($withResponse) {
