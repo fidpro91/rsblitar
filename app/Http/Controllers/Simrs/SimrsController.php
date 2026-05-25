@@ -46,8 +46,8 @@ class SimrsController extends Controller
 
     public function getSimrsData($withResponse = true)
     {
-        $start = Carbon::now()->subDays(7)->startOfDay();
-        $end = Carbon::now()->subDays(7)->endOfDay();
+        $start = Carbon::now()->subDays(10)->startOfDay();
+        $end = Carbon::now()->subDays(10)->endOfDay();
 
         $simrsData = DB::connection('db_simrs')
             ->table('yanmed.visit as v')
