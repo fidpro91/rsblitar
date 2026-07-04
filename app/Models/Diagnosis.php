@@ -18,6 +18,7 @@ class Diagnosis extends Model
         'rank',
         'code',
         'dx_name',
+        'srv_id'
     ];
 
     public $timestamps = true;

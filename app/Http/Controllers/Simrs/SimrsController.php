@@ -10,38 +10,115 @@ use Carbon\Carbon;
 
 class SimrsController extends Controller
 {
-   
+
+    // public function get_all()
+    // {
+    //     set_time_limit(300);
+    //     $simrsData = $this->getSimrsData(false);
+    //     if (!$simrsData || $simrsData->isEmpty()) {
+    //         return response()->json(['message' => 'Tidak ada data ditemukan'], 404);
+    //     }
+
+    //     $simrsData->chunk(100)->each(function ($simrsChunk) {
+    //         $visitIds = $simrsChunk->pluck('visit_id')->toArray();
+    //         $dataInsert = [
+    //             'visit_encounter' => $simrsChunk->map(fn($row) => (array) $row)->toArray(),
+    //             'diagnosis' => $this->getDiagnosa($visitIds, false)->toArray(),
+    //             'visit_icd9' => $this->getTindakan($visitIds, false)->toArray(),
+    //             'observation' => $this->getVitalSigns($visitIds, false)->toArray(),
+    //             'visit_quisioner' => $this->getQuisioner($visitIds, false)->toArray(),
+    //             'visit_farmasi' => $this->getVisitFarmasi($visitIds, false)->toArray(),
+    //             'visit_lab' => $this->getVisitLab($visitIds, false)->toArray(),
+    //             'visit_allergi' => $this->visitAllergi($visitIds, false)->toArray(),
+    //             'visit_careplan' => $this->visitCareplan($visitIds, false)->toArray(),
+    //             'visit_radiologi' => $this->visitRadiologi($visitIds, false)->toArray(),
+    //         ];
+
+
+    //          SimrsInsert::insert($dataInsert);
+    //     });
+
+    //     return response()->json([
+    //         'message' => 'Data berhasil diinsert (chunked)',
+    //         "data" => $simrsData
+    //     ]);
+    // }
+
+
     public function get_all()
     {
         set_time_limit(300);
-        $simrsData = $this->getSimrsData(false);
-        if (!$simrsData || $simrsData->isEmpty()) {
-            return response()->json(['message' => 'Tidak ada data ditemukan'], 404);
+
+        try {
+
+            $encounters = $this->getSimrsData(false);
+
+            if ($encounters->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data tidak ditemukan'
+                ], 404);
+            }
+
+            $visitIds = $encounters->pluck('visit_id')->toArray();
+
+            $diagnosis     = $this->getDiagnosa($visitIds, false);
+            $icd9          = $this->getTindakan($visitIds, false);
+            $observation   = $this->getVitalSigns($visitIds, false);
+            $quisioner     = $this->getQuisioner($visitIds, false);
+            $farmasi       = $this->getVisitFarmasi($visitIds, false);
+            $lab           = $this->getVisitLab($visitIds, false);
+            $allergi       = $this->visitAllergi($visitIds, false);
+            $careplan      = $this->visitCareplan($visitIds, false);
+            $radiologi     = $this->visitRadiologi($visitIds, false);
+
+            $insertResult = SimrsInsert::insert([
+
+                'visit_encounter' => $encounters->map(fn($x) => (array)$x)->toArray(),
+                'diagnosis'       => $diagnosis->map(fn($x) => (array)$x)->toArray(),
+                'visit_icd9'      => $icd9->map(fn($x) => (array)$x)->toArray(),
+                'observation'     => $observation->map(fn($x) => (array)$x)->toArray(),
+                'visit_quisioner' => $quisioner->map(fn($x) => (array)$x)->toArray(),
+                'visit_farmasi'   => $farmasi->map(fn($x) => (array)$x)->toArray(),
+                'visit_lab'       => $lab->map(fn($x) => (array)$x)->toArray(),
+                'visit_allergi'   => $allergi->map(fn($x) => (array)$x)->toArray(),
+                'visit_careplan'  => $careplan->map(fn($x) => (array)$x)->toArray(),
+                'visit_radiologi' => $radiologi->map(fn($x) => (array)$x)->toArray(),
+
+            ]);
+            if (!$insertResult) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal insert data'
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Berhasil',
+                'summary' => [
+                    'encounter' => $encounters->count(),
+                    'diagnosis' => $diagnosis->count(),
+                    'icd9' => $icd9->count(),
+                    'observation' => $observation->count(),
+                    'quisioner' => $quisioner->count(),
+                    'farmasi' => $farmasi->count(),
+                    'lab' => $lab->count(),
+                    'allergi' => $allergi->count(),
+                    'careplan' => $careplan->count(),
+                    'radiologi' => $radiologi->count(),
+                ]
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json([
+
+                'success' => false,
+
+                'message' => $e->getMessage()
+
+            ], 500);
         }
-
-        $simrsData->chunk(100)->each(function ($simrsChunk) {
-            $visitIds = $simrsChunk->pluck('visit_id')->toArray();
-            $dataInsert = [
-                'visit_encounter' => $simrsChunk->map(fn($row) => (array) $row)->toArray(),
-                'diagnosis' => $this->getDiagnosa($visitIds, false)->toArray(),
-                'visit_icd9' => $this->getTindakan($visitIds, false)->toArray(),
-                'observation' => $this->getVitalSigns($visitIds, false)->toArray(),
-                'visit_quisioner' => $this->getQuisioner($visitIds, false)->toArray(),
-                'visit_farmasi' => $this->getVisitFarmasi($visitIds, false)->toArray(),
-                'visit_lab' => $this->getVisitLab($visitIds, false)->toArray(),
-                'visit_allergi' => $this->visitAllergi($visitIds, false)->toArray(),
-                'visit_careplan' => $this->visitCareplan($visitIds, false)->toArray(),
-                'visit_radiologi' => $this->visitRadiologi($visitIds, false)->toArray(),
-            ];
-
-           
-            SimrsInsert::insert($dataInsert);
-        });
-   
-        return response()->json([
-            'message' => 'Data berhasil diinsert (chunked)',
-            "data" => $simrsData
-        ]);
     }
 
     public function getSimrsData($withResponse = true)
@@ -72,14 +149,15 @@ class SimrsController extends Controller
                 's.srv_in as tgl_dilayani',
                 's.srv_out as tgl_selesai_dilayani',
                 'v.visit_end_date as tgl_pulang',
-                's.srv_type as tipe_kunjungan'
+                's.srv_type as tipe_kunjungan',
+                's.srv_id'
             )
             ->where('v.visit_end_date', '>=', $start)
             ->where('v.visit_end_date', '<=', $end)
             ->whereIn('un.unit_type', [21, 23, 67])
             ->whereNull('adm.admission_id')
             ->where('s.srv_status', '!=', 35)
-            ->distinct()
+            ->where('before_srv_id', '=', '0')
             ->get();
 
         if ($withResponse) {
@@ -98,7 +176,8 @@ class SimrsController extends Controller
                 's.visit_id',
                 'i.icd_code',
                 'i.icd_name',
-                'cd.urut'
+                'cd.urut',
+                's.srv_id'
             );
 
         if (!empty($visitIds)) {
@@ -119,14 +198,16 @@ class SimrsController extends Controller
     {
         $query = DB::connection('db_simrs')
             ->table('yanmed.services as s')
-            ->join('yanmed.billing as b', 's.visit_id', '=', 'b.visit_id')
+            ->join('yanmed.billing as b', 's.srv_id', '=', 'b.srv_id')
             ->join('claim.coding_tindakan as ct', 'b.billing_id', '=', 'ct.billing_id')
             ->join('yanmed.ms_icd as i', 'ct.icd_id_coding', '=', 'i.icd_id')
             ->select(
                 's.visit_id',
                 'i.icd_code',
-                'i.icd_name'
-            );
+                'i.icd_name',
+                's.srv_id'
+            )
+            ->distinct();
 
         if (!empty($visitIds)) {
             $query->whereIn('s.visit_id', $visitIds);
@@ -153,7 +234,8 @@ class SimrsController extends Controller
                 'vt.nadi',
                 'vt.rr',
                 'vt.suhu',
-                'vt.spo2'
+                'vt.spo2',
+                's.srv_id'
             );
 
 
@@ -179,7 +261,8 @@ class SimrsController extends Controller
                         'visit_id' => $row->visit_id,
                         'PARAMETER' => $param,
                         'nilai' => $nilai,
-                        'vital_id' => $vital_id
+                        'vital_id' => $vital_id,
+                        'srv_id' => $row->srv_id
                     ]);
                 }
             }
@@ -206,7 +289,18 @@ class SimrsController extends Controller
 
         $query = DB::connection('db_simrs')
             ->table('yanmed.visit as v')
-            ->select('v.visit_id', 'visit_date');
+            ->join('farmasi.sale as s', 'v.visit_id', '=', 's.visit_id')
+            ->select(
+                'v.visit_id',
+                's.date_act',
+                's.service_id as srv_id'
+            )
+            ->where('s.service_id', '!=', null)
+            ->groupBy(
+                'v.visit_id',
+                's.date_act',
+                's.service_id'
+            );
 
         if (!empty($visitIds)) {
             $query->whereIn('v.visit_id', $visitIds);
@@ -225,7 +319,8 @@ class SimrsController extends Controller
             }
             $result->push([
                 'visit_id' => $visit->visit_id,
-                'visit_date' => $visit->visit_date,
+                'srv_id' => $visit->srv_id,
+                'visit_date' => $visit->date_act,
                 'questionnaire_telaah_resep' => $questionnaire
             ]);
         }
@@ -248,6 +343,7 @@ class SimrsController extends Controller
             ->select(
 
                 's.visit_id',
+                's.service_id as srv_id',
                 'i.item_id',
                 'i.kode_satusehat',
                 'r.rcp_date',
@@ -285,6 +381,7 @@ class SimrsController extends Controller
             ->join('kemkes.practitioner as pr2', 'c.par_id_requester', '=', 'pr2.par_id')
             ->select(
                 's.visit_id',
+                's.before_srv_id as srv_id',
                 'mc.namecheck',
                 'pr.practitioner_name as dokter_lab',
                 'pr.practitioner_id as kode_dokter_lab',
@@ -315,13 +412,17 @@ class SimrsController extends Controller
         $query = DB::connection('db_simrs')
             ->table('yanmed.allergy as a')
             ->join('yanmed.visit as v', 'a.px_id', '=', 'v.px_id')
+            ->join('yanmed.services as s', 'v.visit_id', '=', 's.visit_id')
             ->select(
                 'satsetid',
-                'visit_id',
+                'v.visit_id',
                 'allergy_date',
-                'allergy_desc'
+                'allergy_desc',
+                's.before_srv_id as srv_id'
             )
-            ->whereNotNull('satsetid');
+            ->whereNotNull('satsetid')
+            ->where('before_srv_id', '=', '0');
+
 
         if (!empty($visitIds)) {
             $query->whereIn('v.visit_id', $visitIds);
@@ -343,6 +444,7 @@ class SimrsController extends Controller
             ->join('yanmed.services as s', 'pf.srv_id', '=', 's.srv_id')
             ->select(
                 's.visit_id',
+                's.srv_id',
                 'pf.subtl',
                 DB::raw("CASE\n                    WHEN LOWER(pf.subtl) LIKE '%rawat inap%' THEN 'Pasien Melanjutkan rawat inap'\n                    WHEN LOWER(pf.subtl) LIKE '%atas permintaan sendiri%' THEN 'Pasien Meminta pulang atas kemauan sendiri'\n                    WHEN LOWER(pf.subtl) LIKE '%boleh pulang%' AND pf.kontrol = 'Ya' THEN 'Pasien Pulang dengan kontrol kembali'\n                    WHEN LOWER(pf.subtl) LIKE '%boleh pulang%' AND pf.kontrol = 'Tidak' THEN 'Pasien Pulang dengan kondisi baik tidak perlu kontrol'\n                    WHEN LOWER(pf.subtl) LIKE '%rujuk%' OR LOWER(pf.subtl) LIKE '%dirujuk%' OR LOWER(pf.subtl) LIKE '%rujukan%' THEN 'Pasien dirujuk'\n                    ELSE 'Tidak diketahui'\n                END as alasan"),
                 DB::raw("CASE\n                    WHEN LOWER(pf.subtl) LIKE '%rujuk%' OR LOWER(pf.subtl) LIKE '%dirujuk%' OR LOWER(pf.subtl) LIKE '%rujukan%' THEN NULLIF(pf.rujukke, '')\n                    ELSE COALESCE(NULLIF(pf.alasanaps, ''), NULLIF(pf.edu, ''))\n                END as keterangan")
@@ -387,7 +489,7 @@ class SimrsController extends Controller
                 'srv2.par_id',
                 'map_radiologi'
             ]);
-            $query->where('srv.unit_id', '=', '73');
+        $query->where('srv.unit_id', '=', '73');
         if (!empty($visitIds)) {
             $query->whereIn('srv.visit_id', $visitIds);
         }

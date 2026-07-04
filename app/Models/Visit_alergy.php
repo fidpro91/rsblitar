@@ -16,7 +16,8 @@ class Visit_alergy extends Model
         'allergy_id',
         'tanggal_alergi',
         'note',
-        'uuid_allergy'
+        'uuid_allergy',
+        'srv_id'
     ];
 
     public $timestamps = true;

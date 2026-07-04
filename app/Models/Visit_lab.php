@@ -30,7 +30,8 @@ class Visit_lab extends Model
         'uuid_servicereq',
         'jml_sample',
         'satuan_sample',
-        'status_normal'
+        'status_normal',
+        'srv_id'
     ];
 
     public $timestamps = false;

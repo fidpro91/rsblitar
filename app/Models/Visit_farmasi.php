@@ -30,7 +30,8 @@ class Visit_farmasi extends Model
         'uuid_med',
         'uuid_med_request',
         'uuid_med_dispen',
-        'sale_num'
+        'sale_num',
+        'srv_id'
     ];
     public $timestamps = false;
 

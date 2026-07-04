@@ -17,7 +17,8 @@ class Visit_careplane extends Model
         'kondisi_pulang',
         'alasan_pulang',
         'keterangan',
-        'uuid_careplane'
+        'uuid_careplane',
+        'srv_id'
 
     ];
      public $timestamps = false;

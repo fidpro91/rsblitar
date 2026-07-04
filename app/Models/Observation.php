@@ -18,7 +18,8 @@ class Observation extends Model
         'observation_name',
         'uuid_observation',
         'result',
-        'vital_id'
+        'vital_id',
+        'srv_id'
     ];
 
     public $timestamps = true;
