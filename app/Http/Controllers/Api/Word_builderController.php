@@ -14,30 +14,31 @@ class Word_builderController
         try {
             if ($request->berkas == 'resume_medis') {
                 $fileWord = $this->set_resume_medis($request);
-            }elseif ($request->berkas == 'resep') {
+            } elseif ($request->berkas == 'resep') {
                 $fileWord = $this->set_resep($request);
-            }elseif ($request->berkas == 'pemeriksaan_fisik') {
+            } elseif ($request->berkas == 'pemeriksaan_fisik') {
                 $fileWord = $this->set_pemeriksaan_fisik($request);
-            }elseif ($request->berkas == 'resume_medis_ri') {
+            } elseif ($request->berkas == 'resume_medis_ri') {
                 $fileWord = $this->set_resume_medis_ri($request);
-            }else {
-                throw new \Exception("Template DOCX belum di setting",201);
+            } else {
+                throw new \Exception("Template DOCX belum di setting", 201);
             }
-            return $fileWord; 
+            return $fileWord;
         } catch (\Exception $e) {
             return [
-                'code'      => ($e->getCode() == 0 ? 501:$e->getCode()),   
-                'message'   => $e->getMessage().' line '.$e->getLine().' File '.$e->getFile(), 
+                'code'      => ($e->getCode() == 0 ? 501 : $e->getCode()),
+                'message'   => $e->getMessage() . ' line ' . $e->getLine() . ' File ' . $e->getFile(),
             ];
         }
     }
 
-    private function set_resume_medis($request) {
+    private function set_resume_medis($request)
+    {
         $this->validasi_resumeMedis($request);
 
         $templatePath = storage_path('app/template/resume_medis.docx');
         if (!file_exists($templatePath)) {
-            throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}",205);
+            throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}", 205);
         }
         $template = new TemplateProcessor($templatePath);
         // dataPasien
@@ -49,33 +50,33 @@ class Word_builderController
 
         $dataDiagnosa = [];
         $dataDiagnosa = collect($request->data['diagnosa'])
-        ->map(function ($d, $i) {
-            return [
-                "diag.no"         => $i + 1,
-                "diag.nama"       => $d['diagnosa_name'],
-                "diag.kode_im"    => $d['kode_im'],
-                "diag.kode_icd10" => $d['icd10'],
-                "diag.kasus"      => $d['kasus'],
-                "diag.poli"       => $d['poli_name'],
-                "diag.dokter"     => $d['dokter'],
-            ];
-        })
-        ->toArray();
+            ->map(function ($d, $i) {
+                return [
+                    "diag.no"         => $i + 1,
+                    "diag.nama"       => $d['diagnosa_name'],
+                    "diag.kode_im"    => $d['kode_im'],
+                    "diag.kode_icd10" => $d['icd10'],
+                    "diag.kasus"      => $d['kasus'],
+                    "diag.poli"       => $d['poli_name'],
+                    "diag.dokter"     => $d['dokter'],
+                ];
+            })
+            ->toArray();
         $template->cloneRowAndSetValues('diag.no', $dataDiagnosa);
 
         $dataTindakan = [];
         if ($request->data['tindakan']) {
             $dataTindakan = collect($request->data['tindakan'])
-            ->map(function ($d, $i) {
-                return [
-                    "tind.no"               => $i + 1,
-                    "tind.nama"             => $d['nama'],
-                    "tind.kode_im"          => $d['kode_im'],
-                    "tind.kode_icd9"        => $d['kode_icd9'],
-                    "tind.dokter"           => $d['dokter'],
-                ];
-            })
-            ->toArray();
+                ->map(function ($d, $i) {
+                    return [
+                        "tind.no"               => $i + 1,
+                        "tind.nama"             => $d['nama'],
+                        "tind.kode_im"          => $d['kode_im'],
+                        "tind.kode_icd9"        => $d['kode_icd9'],
+                        "tind.dokter"           => $d['dokter'],
+                    ];
+                })
+                ->toArray();
             $template->cloneRowAndSetValues('tind.no', $dataTindakan);
         } else {
             $template->setValue('tind.no', '');
@@ -87,16 +88,16 @@ class Word_builderController
 
         if (is_array($request->data['pemeriksaan'])) {
             $dataPemeriksaan = collect($request->data['pemeriksaan'])
-            ->map(fn($v) => "- " . $v)
-            ->implode("\n");
-        }else {
+                ->map(fn($v) => "- " . $v)
+                ->implode("\n");
+        } else {
             $dataPemeriksaan = $request->data['pemeriksaan'];
         }
         $template->setValue('pemeriksaan', $dataPemeriksaan);
 
         if (is_array($request->data['terapi'])) {
             $dataTerapi = collect($request->data['terapi'])->implode(", ");
-        }else {
+        } else {
             $dataTerapi = $request->data['terapi'];
         }
         $template->setValue('terapi', $dataTerapi);
@@ -104,7 +105,7 @@ class Word_builderController
         $template->setValue("nama_dokter", $request->nama);
         $template->setValue("tanggal", Carbon::now()->translatedFormat('d F Y'));
         // Lokasi output DOCX
-        $nameFile = "tmp_$request->berkas".$request->id_berkas.$request->visit_id.".docx";
+        $nameFile = "tmp_$request->berkas" . $request->id_berkas . $request->visit_id . ".docx";
         // $outputPath = storage_path('app/public/'.$nameFile);
         $outputPath = "/mnt/docxfile/$nameFile";
         $template->saveAs($outputPath);
@@ -117,11 +118,12 @@ class Word_builderController
         ];
     }
 
-    private function set_pemeriksaan_fisik($request) {
+    private function set_pemeriksaan_fisik($request)
+    {
         // $this->validasi_resumeMedis($request);
         $templatePath = storage_path('app/template/pemeriksaan_fisik.docx');
         if (!file_exists($templatePath)) {
-            throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}",205);
+            throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}", 205);
         }
         $template = new TemplateProcessor($templatePath);
         // dataPasien
@@ -145,7 +147,7 @@ class Word_builderController
         //gambar fisik
         $gambarPemeriksaan = $request->data['gambarPemeriksaan']['image'];
         if (!str_starts_with($gambarPemeriksaan, 'data:image')) {
-            throw new \Exception("Format gambar tidak valid",205);
+            throw new \Exception("Format gambar tidak valid", 205);
         }
         $imageData = base64_decode(
             preg_replace('#^data:image/\w+;base64,#i', '', $gambarPemeriksaan)
@@ -155,27 +157,27 @@ class Word_builderController
         // $tempPath = public_path('anatomi.png');
         $template->setImageValue('gambarPemeriksaan', [
             'path'      => $tempPath,
-            'width'     => (!empty($request->data['gambarPemeriksaan']['width'])?$request->data['gambarPemeriksaan']['width']:1000),
-            'height'    => (!empty($request->data['gambarPemeriksaan']['height'])?$request->data['gambarPemeriksaan']['height']:500),
+            'width'     => (!empty($request->data['gambarPemeriksaan']['width']) ? $request->data['gambarPemeriksaan']['width'] : 1000),
+            'height'    => (!empty($request->data['gambarPemeriksaan']['height']) ? $request->data['gambarPemeriksaan']['height'] : 500),
             'ratio' => true
         ]);
 
         $dataDiagnosa = [];
         $dataDiagnosa = collect($request->data['diagnosa'])
-        ->map(function ($d) {
-            return [
-                "diag.prioritas"        => $d['prioritas'],
-                "diag.diagnosaKerja"    => $d['diagnosa_kerja'],
-                "diag.diagnosaBanding"  => $d['diagnosa_banding'],
-            ];
-        })
-        ->toArray();
+            ->map(function ($d) {
+                return [
+                    "diag.prioritas"        => $d['prioritas'],
+                    "diag.diagnosaKerja"    => $d['diagnosa_kerja'],
+                    "diag.diagnosaBanding"  => $d['diagnosa_banding'],
+                ];
+            })
+            ->toArray();
         $template->cloneRowAndSetValues('diag.prioritas', $dataDiagnosa);
 
         $template->setValue("nama_dokter", $request->namaDokter);
         $template->setValue("tanggal", Carbon::now()->translatedFormat('d F Y'));
         // Lokasi output DOCX
-        $nameFile = "tmp_$request->berkas".$request->id_berkas.$request->visit_id.time().".docx";
+        $nameFile = "tmp_$request->berkas" . $request->id_berkas . $request->visit_id . time() . ".docx";
         // $outputPath = storage_path('app/public/'.$nameFile);
         $outputPath = "/mnt/docxfile/$nameFile";
         $template->saveAs($outputPath);
@@ -188,12 +190,13 @@ class Word_builderController
         ];
     }
 
-    private function set_resep($request) {
+    private function set_resep($request)
+    {
         $this->validasi_resep($request);
 
         $templatePath = storage_path('app/template/resep.docx');
         if (!file_exists($templatePath)) {
-            throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}",205);
+            throw new \Exception("Template DOCX tidak ditemukan: {$templatePath}", 205);
         }
         $template = new TemplateProcessor($templatePath);
         // dataPasien
@@ -212,23 +215,23 @@ class Word_builderController
 
         if (is_array($request->data['listObat'])) {
             $dataObat = collect($request->data['listObat'])
-            ->implode("\n");
+                ->implode("\n");
             $template->setValue('listObat', $dataObat);
-        }else {
+        } else {
             $template->setValue('listObat', $request->data['listObat']);
         }
 
         if (is_array($request->data['listRacikan'])) {
             $dataRacikan = collect($request->data['listRacikan'])->implode("\n");
             $template->setValue('obatRacikan', $dataRacikan);
-        }else {
+        } else {
             $template->setValue('obatRacikan', $request->data['listRacikan']);
         }
 
         $template->setValue("namaDokter", $request->namaDokter);
         $template->setValue("tanggal", Carbon::now()->translatedFormat('d F Y'));
         // Lokasi output DOCX
-        $nameFile = "tmp_$request->berkas".$request->id_berkas.$request->visit_id.".docx";
+        $nameFile = "tmp_$request->berkas" . $request->id_berkas . $request->visit_id . ".docx";
         // $outputPath = storage_path('app/public/'.$nameFile);
         $outputPath = "/mnt/docxfile/$nameFile";
         $template->saveAs($outputPath);
@@ -276,10 +279,9 @@ class Word_builderController
                 'data.pemeriksaan'                  => 'nullable',
                 'data.terapi'                       => 'nullable',
             ]);
-
         } catch (ValidationException $e) {
             $errorMessage = $e->validator->errors()->first();
-            throw new \Exception("Validasi gagal: " . $errorMessage,206);
+            throw new \Exception("Validasi gagal: " . $errorMessage, 206);
         }
     }
 
@@ -305,13 +307,12 @@ class Word_builderController
                 'data.pemeriksaan'                  => 'nullable',
                 'data.terapi'                       => 'nullable',
             ]);
-
         } catch (ValidationException $e) {
             $errorMessage = $e->validator->errors()->first();
-            throw new \Exception("Validasi gagal: " . $errorMessage,206);
+            throw new \Exception("Validasi gagal: " . $errorMessage, 206);
         }
     }
-    
+
     private function set_resume_medis_ri($request)
     {
         $this->validasi_resumeMedisRI($request);
@@ -447,6 +448,7 @@ class Word_builderController
             // Lokasi output DOCX
             $nameFile = "tmp_$request->berkas" . $request->id_berkas . $request->visit_id . ".docx";
             $outputDir = '/mnt/docxfile';
+            // $outputDir = storage_path('app/public/' . $nameFile);
             if (!file_exists($outputDir)) {
                 @mkdir($outputDir, 0777, true);
             }
@@ -596,7 +598,7 @@ class Word_builderController
             throw new \Exception("Validasi gagal: " . $errorMessage, 206);
         }
     }
-    
+
     private function xmlSafe($value)
     {
         return htmlspecialchars((string) $value, ENT_QUOTES | ENT_XML1, 'UTF-8');
