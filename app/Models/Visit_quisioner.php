@@ -17,6 +17,7 @@ class Visit_quisioner extends Model
         'tgl_quisioner',
         'data_quisioner',
         'uuid_quisioner',
+        'srv_id'
     ];
 
     protected $casts = [

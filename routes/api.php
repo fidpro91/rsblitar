@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\LogResponseController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\SendBundleManualController;
 use App\Http\Controllers\Simrs\SimrsController;
@@ -19,6 +20,7 @@ Route::prefix('satusehat')->group(function () {
 
 Route::prefix('simrs')->group(function () {
     Route::get('get_all', [SimrsController::class, 'get_all']);
+    Route::post('log_response', [LogResponseController::class, 'index']);
 });
 //TTE
 Route::post('tte/sign_tte', "SignTteController@signedpdf");

@@ -15,7 +15,8 @@ class Visit_icd9 extends Model
         'visit_id',
         'uuid',
         'icd_code',
-        'icd_name'
+        'icd_name',
+        'srv_id'
     ];
     public $timestamps = false;
 

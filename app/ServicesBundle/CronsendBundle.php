@@ -46,7 +46,7 @@ class CronsendBundle
             EpisodeOfCareBundle::class,
             ProsedureBundle::class,
            // ImunisasiBundle::class,
-          //  RadiologiBundle::class
+            RadiologiBundle::class
         ];
 
         try {

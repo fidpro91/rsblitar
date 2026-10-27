@@ -12,27 +12,46 @@ use App\Models\Visit_quisioner;
 use App\Models\Visit_alergy;
 use App\Models\Visit_careplane;
 use App\Models\Visit_radiologi;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class SimrsInsert
 {
+    private $encounterCache = [];
+    private $visitCache = [];
+    private $chunkSize = 100;
 
-    public static function insert(array $data, int $chunkSize = 100)
+    private function key($visitId, $srvId)
     {
-        
-        $chunkArray = function($array, $size) {
-            if (!is_array($array)) return [$array];
-            return array_chunk($array, $size);
-        };
+        return trim($visitId) . '-' . trim($srvId);
+    }
 
-        if (!empty($data['visit_encounter'])) {
-            $rows = $data['visit_encounter'];
-            foreach ($chunkArray($rows, $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $row) {
-                    if ($row instanceof \stdClass) $row = (array)$row;
-                    $bulk[] = [
+    public static function insert(array $data, int $chunkSize = 100): bool
+    {
+        $self = new self();
+        $self->chunkSize = $chunkSize;
+
+        DB::beginTransaction();
+
+        try {
+
+            /*
+            |--------------------------------------------------------------------------
+            | ENCOUNTER (MASTER CACHE)
+            |--------------------------------------------------------------------------
+            */
+            $encounters = [];
+
+            if (!empty($data['visit_encounter'])) {
+
+                foreach ($data['visit_encounter'] as $row) {
+
+                    $row = (array) $row;
+
+                    $encounters[] = [
                         'visit_id' => $row['visit_id'] ?? null,
+                        'srv_id' => $row['srv_id'] ?? null,
                         'no_ktp' => $row['px_noktp'] ?? null,
                         'px_norm' => $row['px_norm'] ?? null,
                         'px_name' => $row['px_name'] ?? null,
@@ -46,69 +65,144 @@ class SimrsInsert
                         'tgl_pulang' => $row['tgl_pulang'] ?? null,
                         'tipe_kunjungan' => $row['tipe_kunjungan'] ?? null,
                         'is_send' => $row['is_send'] ?? false,
-                        'uuid_encounter' => $row['uuid_encounter'] ?? Str::uuid(),
+                        'uuid_encounter' => $row['uuid_encounter'] ?? (string) Str::uuid(),
                         'kode_pasien' => $row['patient_id_kemkes'] ?? null,
                         'instruksi_pulang' => $row['instruksi_pulang'] ?? null,
-                        'uuid_composition' => $row['uuid_composition'] ?? Str::uuid(),
-                        'uuid_clinicalimpresion' => $row['uuid_clinicalimpresion'] ?? Str::uuid(),
+                        'uuid_composition' => $row['uuid_composition'] ?? (string) Str::uuid(),
+                        'uuid_clinicalimpresion' => $row['uuid_clinicalimpresion'] ?? (string) Str::uuid(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Visit_encounter::create($row);
+
+
+                foreach (array_chunk($encounters, $self->chunkSize) as $chunk) {
+                    Visit_encounter::insert($chunk);
+                }
+
+                $all = Visit_encounter::whereIn('visit_id', array_column($encounters, 'visit_id'))
+                    ->get();
+                foreach ($all as $enc) {
+                    // cache berdasarkan visit + srv
+                    $self->encounterCache[$self->key($enc->visit_id, $enc->srv_id)] = $enc->id;
+
+                    // cache berdasarkan visit saja
+                    $self->visitCache[$enc->visit_id] = $enc->id;
+                }
             }
-        }
-        if (!empty($data['observation']) && is_array($data['observation'])) {
-            foreach ($chunkArray($data['observation'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
-                    $bulk[] = [
+
+            /*
+            |--------------------------------------------------------------------------
+            | OBSERVATION
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['observation'])) {
+
+                $insert = [];
+
+                foreach ($data['observation'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+                    if (!isset($self->encounterCache[$key])) continue;
+
+                    $insert[] = [
                         'visit_id' => $item['visit_id'] ?? null,
                         'observation_name' => $item['PARAMETER'] ?? null,
                         'result' => $item['nilai'] ?? null,
                         'vital_id' => $item['vital_id'] ?? null,
-                        'uuid_observation' => $item['uuid_observation'] ?? Str::uuid(),
+                        'uuid_observation' => $item['uuid_observation'] ?? (string) Str::uuid(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                        'srv_id' => $item['srv_id'] ?? null,
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Observation::create($row);
+
+                foreach (array_chunk($insert, $self->chunkSize) as $chunk) {
+                    Observation::insert($chunk);
+                }
             }
-        }
-        if (!empty($data['diagnosis']) && is_array($data['diagnosis'])) {
-            foreach ($chunkArray($data['diagnosis'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
-                    $bulk[] = [
-                        'visit_id' => $item['visit_id'] ?? null,
-                        'code' => $item['icd_code'] ?? null,
+
+            /*
+            |--------------------------------------------------------------------------
+            | DIAGNOSIS
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['diagnosis'])) {
+
+                $insert = [];
+
+                foreach ($data['diagnosis'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+                    if (!isset($self->encounterCache[$key])) continue;
+
+                    $insert[] = [
+                        'visit_id' => $item['visit_id'],
+                        'srv_id' => $item['srv_id'],
+                        'code' => $item['icd_code'],
                         'dx_name' => $item['icd_name'] ?? null,
                         'rank' => $item['urut'] ?? null,
-                        'uuid' => $item['uuid'] ?? Str::uuid(),
+                        'uuid' => $item['uuid'] ?? (string) Str::uuid(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Diagnosis::create($row);
+
+                foreach (array_chunk($insert, $self->chunkSize) as $chunk) {
+                    Diagnosis::insert($chunk);
+                }
             }
-        }
-        if (!empty($data['visit_icd9']) && is_array($data['visit_icd9'])) {
-            foreach ($chunkArray($data['visit_icd9'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
-                    $bulk[] = [
-                        'visit_id' => $item['visit_id'] ?? null,
-                        'icd_code' => $item['icd_code'] ?? null,
+
+            /*
+            |--------------------------------------------------------------------------
+            | VISIT ICD9
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['visit_icd9'])) {
+
+                $insert = [];
+
+                foreach ($data['visit_icd9'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+                    if (!isset($self->visitCache[$item['visit_id']])) continue;
+
+                    $insert[] = [
+                        'visit_id' => $item['visit_id'],
+                        'srv_id' => $item['srv_id'],
+                        'icd_code' => $item['icd_code'],
                         'icd_name' => $item['icd_name'] ?? null,
-                        'uuid' => $item['uuid'] ?? Str::uuid(),
+                        'uuid' => $item['uuid'] ?? (string) Str::uuid(),
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Visit_icd9::create($row);
+
+                Visit_icd9::insert($insert);
             }
-        }
-        if (!empty($data['visit_lab']) && is_array($data['visit_lab'])) {
-            foreach ($chunkArray($data['visit_lab'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
-                    $bulk[] = [
+
+            /*
+            |--------------------------------------------------------------------------
+            | VISIT LAB
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['visit_lab'])) {
+
+                $insert = [];
+
+                foreach ($data['visit_lab'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+
+                    if (!isset($self->visitCache[$item['visit_id']])) continue;
+
+                    $insert[] = [
                         'visit_id' => $item['visit_id'] ?? null,
                         'nama_pemeriksaan' => $item['namecheck'] ?? null,
                         'dokter_lab' => $item['dokter_lab'] ?? null,
@@ -121,29 +215,42 @@ class SimrsInsert
                         'hasil_lab' => $item['result'] ?? null,
                         'map_pemeriksaan_id' => $item['kode_satusehat'] ?? null,
                         'map_specimen_id' => $item['map_specimen_id'] ?? 1,
-                        'uuid_specimen' => $item['uuid_specimen'] ?? Str::uuid(),
-                        'uuid_obs' => $item['uuid_obs'] ?? Str::uuid(),
-                        'uuid_diagnostic' => $item['uuid_diagnostic'] ?? Str::uuid(),
-                        'uuid_servicereq' => $item['uuid_servicereq'] ?? Str::uuid(),
+                        'uuid_specimen' => $item['uuid_specimen'] ?? (string) Str::uuid(),
+                        'uuid_obs' => $item['uuid_obs'] ?? (string) Str::uuid(),
+                        'uuid_diagnostic' => $item['uuid_diagnostic'] ?? (string) Str::uuid(),
+                        'uuid_servicereq' => $item['uuid_servicereq'] ?? (string) Str::uuid(),
                         'jml_sample' => $item['jml_sample'] ?? 1,
                         'satuan_sample' => $item['satuan_sample'] ?? null,
                         'status_normal' => $item['status_normal'] ?? null,
+                        'srv_id' => $item['srv_id'] ?? null,
 
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Visit_lab::create($row);
+
+                Visit_lab::insert($insert);
             }
-        }
-        if (!empty($data['visit_farmasi']) && is_array($data['visit_farmasi'])) {
-            foreach ($chunkArray($data['visit_farmasi'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
+
+            /*
+            |--------------------------------------------------------------------------
+            | FARMASI
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['visit_farmasi'])) {
+
+                $insert = [];
+
+                foreach ($data['visit_farmasi'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+                    if (!isset($self->encounterCache[$key])) continue;
                     $sale_qty = $item['sale_qty'] ?? null;
+
                     if (!is_null($sale_qty)) {
-                        $sale_qty = (int)$sale_qty;
+                        $sale_qty = (int) $sale_qty;
                     }
-                    $bulk[] = [
+                    $insert[] = [
                         'item_id_simrs' => $item['item_id_simrs'] ?? $item['item_id'] ?? null,
                         'item_id_kfa' => $item['kode_satusehat'] ?? null,
                         'visit_id' => $item['visit_id'] ?? null,
@@ -159,95 +266,159 @@ class SimrsInsert
                         'kode_dokter' => $item['kode_dokter'] ?? $item['practitioner_id'] ?? null,
                         'unit_name' => $item['unit_name'] ?? $item['location_name'] ?? null,
                         'uuid_unit' => $item['location_id_kemkes'] ?? null,
-                        'uuid_med' => $item['uuid_med'] ?? Str::uuid(),
-                        'uuid_med_request' => $item['uuid_med_request'] ?? Str::uuid(),
-                        'uuid_med_dispen' => $item['uuid_med_dispen'] ?? Str::uuid(),
+                        'uuid_med' => $item['uuid_med'] ?? (string) Str::uuid(),
+                        'uuid_med_request' => $item['uuid_med_request'] ?? (string) Str::uuid(),
+                        'uuid_med_dispen' => $item['uuid_med_dispen'] ?? (string) Str::uuid(),
                         'sale_num' => $item['sale_num'] ?? null,
+                        'srv_id' => $item['srv_id'] ?? null,
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Visit_farmasi::create($row);
+
+                Visit_farmasi::insert($insert);
             }
-        }
-        if (!empty($data['visit_quisioner']) && is_array($data['visit_quisioner'])) {
-            foreach ($chunkArray($data['visit_quisioner'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
-                    $bulk[] = [
+
+            /*
+            |--------------------------------------------------------------------------
+            | QUISIONER
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['visit_quisioner'])) {
+
+                $insert = [];
+
+                foreach ($data['visit_quisioner'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+
+                    if (!isset($self->visitCache[$item['visit_id']])) continue;
+
+                    $insert[] = [
                         'visit_id' => $item['visit_id'] ?? null,
                         'kode_apoteker' => $item['kode_apoteker'] ?? 10002580986,
                         'nama_apoteker' => $item['nama_apoteker'] ?? 'Tita Sugesti',
-                        'data_quisioner' => $item['questionnaire_telaah_resep'] ?? null,
-                        'uuid_quisioner' => $item['uuid_quisioner'] ?? Str::uuid(),
+                        'data_quisioner' => json_encode($item['questionnaire_telaah_resep'] ?? []),
+                        'uuid_quisioner' => $item['uuid_quisioner'] ?? (string) Str::uuid(),
                         'tgl_quisioner' => $item['visit_date'] ?? null,
+                        'srv_id' => $item['srv_id'] ?? null,
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Visit_quisioner::create($row);
-            }
-        }
 
-        if (!empty($data['visit_allergi']) && is_array($data['visit_allergi'])) {
-            foreach ($chunkArray($data['visit_allergi'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
-                    $bulk[] = [
+                Visit_quisioner::insert($insert);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | ALERGI
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['visit_allergi'])) {
+
+                $insert = [];
+
+                foreach ($data['visit_allergi'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+                    if (!isset($self->visitCache[$item['visit_id']])) continue;
+
+                    $insert[] = [
                         'visit_id' => $item['visit_id'] ?? null,
                         'tanggal_alergi' => $item['allergy_date'] ?? null,
                         'note' => $item['allergy_desc'] ?? null,
                         'allergy_id' => $item['satsetid'] ?? null,
-                        'uuid_allergy' => $item['uuid_allergy'] ?? Str::uuid(),
+                        'uuid_allergy' => $item['uuid_allergy'] ?? (string) Str::uuid(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                        'srv_id' => $item['srv_id'] ?? null,
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Visit_alergy::create($row);
-            }
-        }
 
-        if (!empty($data['visit_careplan']) && is_array($data['visit_careplan'])) {
-            foreach ($chunkArray($data['visit_careplan'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
-                    $bulk[] = [
+                Visit_alergy::insert($insert);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | CAREPLAN
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['visit_careplan'])) {
+
+                $insert = [];
+
+                foreach ($data['visit_careplan'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+                    if (!isset($self->visitCache[$item['visit_id']])) continue;
+
+                    $insert[] = [
                         'visit_id' => $item['visit_id'] ?? null,
                         'kondisi_pulang' => $item['subtl'] ?? null,
                         'alasan_pulang' => $item['alasan'] ?? null,
                         'keterangan' => $item['keterangan'] ?? null,
-                        'uuid_careplane' => $item['uuid_careplane'] ?? Str::uuid(),
+                        'uuid_careplane' => $item['uuid_careplane'] ?? (string) Str::uuid(),
+                        'srv_id' => $item['srv_id'] ?? null,
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Visit_careplane::create($row);
+
+                Visit_careplane::insert($insert);
             }
-        }
 
+            /*
+            |--------------------------------------------------------------------------
+            | RADIOLOGI
+            |--------------------------------------------------------------------------
+            */
+            if (!empty($data['visit_radiologi'])) {
 
-        if (!empty($data['visit_radiologi']) && is_array($data['visit_radiologi'])) {
-            foreach ($chunkArray($data['visit_radiologi'], $chunkSize) as $chunk) {
-                $bulk = [];
-                foreach ($chunk as $item) {
-                    if ($item instanceof \stdClass) $item = (array)$item;
-                    $bulk[] = [
-                        'visit_id' => $item['visit_id'],
-                        'srv_id' => $item['srv_id'],
-                        'tanggal_order' => $item['tanggal_order'],
-                        'nama_pemeriksaan' => $item['nama_pemeriksaan'],
-                        'dokter_pengirim' => $item['dokter_pengirim'],
-                        'kode_dokter_pengirim' => $item['kode_dokter_pengirim'],
-                        'tanggal_pemeriksaan' => $item['tanggal_pemeriksaan'],
-                        'tanggal_hasil' => $item['tanggal_hasil'],
-                        'dokter_radiologi' => $item['dokter_radiologi'],
-                        'kode_dokter_radiologi' => $item['kode_dokter_radiologi'],
-                        'hasil_pemeriksaan' => $item['hasil_pemeriksaan'],
-                        'uuid_service_request' => Str::uuid(),
-                        'uuid_observation' => Str::uuid(),
-                        'uuid_diagnostic_report' => Str::uuid(),
-                        'code_map_rad' => $item['map_radiologi'],
-                        'acsn_number' => $item['assesion_number'],
+                $insert = [];
 
+                foreach ($data['visit_radiologi'] as $item) {
+
+                    $item = (array) $item;
+                    $key = $self->key($item['visit_id'], $item['srv_id']);
+
+                    if (!isset($self->visitCache[$item['visit_id']])) continue;
+
+                    $insert[] = [
+                        'visit_id' => $item['visit_id'] ?? null,
+                        'srv_id' => $item['srv_id'] ?? null,
+                        'tanggal_order' => $item['tanggal_order'] ?? null,
+                        'nama_pemeriksaan' => $item['nama_pemeriksaan'] ?? null,
+                        'dokter_pengirim' => $item['dokter_pengirim'] ?? null,
+                        'kode_dokter_pengirim' => $item['kode_dokter_pengirim'] ?? null,
+                        'tanggal_pemeriksaan' => $item['tanggal_pemeriksaan'] ?? null,
+                        'tanggal_hasil' => $item['tanggal_hasil'] ?? null,
+                        'dokter_radiologi' => $item['dokter_radiologi'] ?? null,
+                        'kode_dokter_radiologi' => $item['kode_dokter_radiologi'] ?? null,
+                        'hasil_pemeriksaan' => $item['hasil_pemeriksaan'] ?? null,
+                        'uuid_service_request' => (string) Str::uuid(),
+                        'uuid_observation' => (string) Str::uuid(),
+                        'uuid_diagnostic_report' => (string) Str::uuid(),
+                        'code_map_rad' => $item['map_radiologi'] ?? null,
+                        'acsn_number' => $item['assesion_number'] ?? null,
                     ];
                 }
-                if (!empty($bulk)) foreach ($bulk as $row) Visit_radiologi::create($row);
+
+                Visit_radiologi::insert($insert);
             }
+
+            DB::commit();
+            return true;
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            Log::error('SIMRS Insert Error: ' . $e->getMessage(), [
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+            ]);
+
+            return false;
         }
     }
 }
