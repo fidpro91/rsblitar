@@ -75,6 +75,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'schema' => 'public',
+            'connect_timeout' => env('DB_SIMRS_TIMEOUT', 2),
             'sslmode' => 'prefer',
         ],
 
@@ -90,6 +91,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'schema' => 'public',
+            'connect_timeout' => env('DB_SIMRS_TIMEOUT', 2),
             'sslmode' => 'prefer',
         ],
 

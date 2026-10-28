@@ -50,73 +50,37 @@ class SimrsController extends Controller
         set_time_limit(300);
 
         try {
+            $startDate = request('start_date', Carbon::now()->subDays(10)->toDateString());
+            $endDate   = request('end_date', Carbon::now()->subDays(10)->toDateString());
 
-            $encounters = $this->getSimrsData(false);
+            $syncService = new \App\Libraries\Simrs\SimrsSyncService();
+            $res = $syncService->sync([
+                'start_date' => $startDate,
 
-            if ($encounters->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data tidak ditemukan'
-                ], 404);
-            }
+                'end_date'   => $endDate,
 
-            $visitIds = $encounters->pluck('visit_id')->toArray();
+                'chunk_size' => 50,
 
-            $diagnosis     = $this->getDiagnosa($visitIds, false);
-            $icd9          = $this->getTindakan($visitIds, false);
-            $observation   = $this->getVitalSigns($visitIds, false);
-            $quisioner     = $this->getQuisioner($visitIds, false);
-            $farmasi       = $this->getVisitFarmasi($visitIds, false);
-            $lab           = $this->getVisitLab($visitIds, false);
-            $allergi       = $this->visitAllergi($visitIds, false);
-            $careplan      = $this->visitCareplan($visitIds, false);
-            $radiologi     = $this->visitRadiologi($visitIds, false);
-
-            $insertResult = SimrsInsert::insert([
-
-                'visit_encounter' => $encounters->map(fn($x) => (array)$x)->toArray(),
-                'diagnosis'       => $diagnosis->map(fn($x) => (array)$x)->toArray(),
-                'visit_icd9'      => $icd9->map(fn($x) => (array)$x)->toArray(),
-                'observation'     => $observation->map(fn($x) => (array)$x)->toArray(),
-                'visit_quisioner' => $quisioner->map(fn($x) => (array)$x)->toArray(),
-                'visit_farmasi'   => $farmasi->map(fn($x) => (array)$x)->toArray(),
-                'visit_lab'       => $lab->map(fn($x) => (array)$x)->toArray(),
-                'visit_allergi'   => $allergi->map(fn($x) => (array)$x)->toArray(),
-                'visit_careplan'  => $careplan->map(fn($x) => (array)$x)->toArray(),
-                'visit_radiologi' => $radiologi->map(fn($x) => (array)$x)->toArray(),
+                'trigger'    => 'controller_get_all'
 
             ]);
-            if (!$insertResult) {
+
+            if (!$res['success']) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Gagal insert data'
+                    'message' => $res['message'] ?? 'Gagal insert data'
                 ], 500);
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Berhasil',
-                'summary' => [
-                    'encounter' => $encounters->count(),
-                    'diagnosis' => $diagnosis->count(),
-                    'icd9' => $icd9->count(),
-                    'observation' => $observation->count(),
-                    'quisioner' => $quisioner->count(),
-                    'farmasi' => $farmasi->count(),
-                    'lab' => $lab->count(),
-                    'allergi' => $allergi->count(),
-                    'careplan' => $careplan->count(),
-                    'radiologi' => $radiologi->count(),
-                ]
+                'summary' => $res['total'] ?? []
             ]);
-        } catch (\Exception $e) {
-
+        } catch (\Throwable $e) {
             return response()->json([
-
                 'success' => false,
-
                 'message' => $e->getMessage()
-
             ], 500);
         }
     }

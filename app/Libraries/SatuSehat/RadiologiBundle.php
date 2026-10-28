@@ -3,6 +3,7 @@
 namespace App\Libraries\SatuSehat;
 
 use App\Models\Visit_encounter;
+use App\Libraries\SatuSehatStorageService;
 
 class RadiologiBundle
 {
@@ -10,251 +11,124 @@ class RadiologiBundle
     {
         $encounter = Visit_encounter::with('visit_radiologi.ms_radiologi')
             ->where('visit_id', $visitId)
-            ->firstOrFail();
+            ->first();
 
-        $orgId = env('ORG_ID_PROUD');
+        if (!$encounter || $encounter->visit_radiologi->isEmpty()) {
+            return [];
+        }
+
+        $storage = new SatuSehatStorageService();
+        $existingEncounterId = $storage->getSpecificResourceId($visitId, 'Encounter');
+
+        $encounterRef = !empty($existingEncounterId)
+            ? "Encounter/{$existingEncounterId}"
+            : "urn:uuid:{$encounter->uuid_encounter}";
+
+        $orgId = env('ORG_ID_PROUD', '100026368');
         $patientId = $encounter->kode_pasien;
-        $encounterId = $encounter->uuid_encounter;
 
         $entries = [];
 
         foreach ($encounter->visit_radiologi as $rad) {
-
             $ms = $rad->ms_radiologi; 
+            $serviceRequestId = $rad->uuid_service_request;
+            $existingRadSrId = $storage->getSpecificResourceId($visitId, 'ServiceRequest_Rad_' . $rad->id);
 
-            $serviceRequestId = $rad->uuid_service_request ;
-            $observationId    = $rad->uuid_observation ;
-            $diagnosticId     = $rad->uuid_diagnostic_report ;            
-
-            /**
-             * =========================
-             * SERVICE REQUEST
-             * =========================
-             */
-            $entries[] = [
-                'fullUrl' => "urn:uuid:$serviceRequestId",
-                'resource' => [
-                    'resourceType' => 'ServiceRequest',
-                    'identifier' => [
-                        [
-                            'system' => "http://sys-ids.kemkes.go.id/servicerequest/$orgId",
-                            'value' => $encounter->visit_id . '-RAD-' . $rad->id,
-                        ],
-                        [
-                            'use' => 'usual',
-                            'type' => [
-                                'coding' => [
-                                    [
-                                        'system' => 'http://terminology.hl7.org/CodeSystem/v2-0203',
-                                        'code' => 'ACSN',
-                                    ]
-                                ]
-                            ],
-                            'system' => "http://sys-ids.kemkes.go.id/acsn/$orgId",
-                            'value' => $rad->acsn_number,
-                        ]
+            $resource = [
+                'resourceType' => 'ServiceRequest',
+                'identifier' => [
+                    [
+                        'system' => "http://sys-ids.kemkes.go.id/servicerequest/{$orgId}",
+                        'value' => "{$encounter->visit_id} - RAD - {$rad->id}",
                     ],
-                    'status' => 'active',
-                    'intent' => 'original-order',
-                    'category' => [
-                        [
+                    [
+                        'use' => 'usual',
+                        'type' => [
                             'coding' => [
                                 [
-                                    'system' => 'http://snomed.info/sct',
-                                    'code' => '363679005',
-                                    'display' => 'Imaging',
+                                    'system' => 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                                    'code' => 'ACSN',
                                 ]
                             ]
-                        ]
-                    ],
-                    'priority' => $rad->prioritas ?? 'routine',
-                    'code' => [
+                        ],
+                        'system' => "http://sys-ids.kemkes.go.id/acsn/{$orgId}",
+                        'value' => $rad->acsn_number ?? "ACSN-{$rad->id}",
+                    ]
+                ],
+                'status' => 'active',
+                'intent' => 'original-order',
+                'category' => [
+                    [
                         'coding' => [
                             [
-                                'system' => 'http://loinc.org',
-                                'code' => $ms->loinc_code,
-                                'display' => $ms->loinc_name,
+                                'system' => 'http://snomed.info/sct',
+                                'code' => '363679005',
+                                'display' => 'Imaging',
+                            ]
+                        ]
+                    ]
+                ],
+                'priority' => $rad->prioritas ?? 'routine',
+                'code' => [
+                    'coding' => [
+                        [
+                            'system' => 'http://loinc.org',
+                            'code' => $ms->loinc_code ?? '36554-4',
+                            'display' => $ms->loinc_name ?? ($rad->nama_pemeriksaan ?? 'X-Ray'),
+                        ]
+                    ],
+                    'text' => $rad->nama_pemeriksaan ?? 'Radiology',
+                ],
+                'orderDetail' => [
+                    [
+                        'coding' => [
+                            [
+                                'system' => 'http://dicom.nema.org/resources/ontology/DCM',
+                                'code' => $ms->modality ?? 'DX',
                             ]
                         ],
-                        'text' => $rad->nama_pemeriksaan,
-                    ],
-                    'orderDetail' => [
-                        [
-                            'coding' => [
-                                [
-                                    'system' => 'http://dicom.nema.org/resources/ontology/DCM',
-                                    'code' => $ms->modality ?? 'DX',
-                                ]
-                            ],
-                            'text' => 'Modality Code: ' . ($ms->modality ?? 'DX'),
-                        ],
-                    ],
-                    'subject' => [
-                        'reference' => "Patient/$patientId"
-                    ],
-                    'encounter' => [
-                        'reference' => "urn:uuid:$encounterId"
-                    ],
-                    'occurrenceDateTime' => $rad->tanggal_order
-                        ? date("Y-m-d\TH:i:sP", strtotime($rad->tanggal_order))
-                        : null,
-                    'requester' => [
-                        'reference' => "Practitioner/$rad->kode_dokter_pengirim",
-                        'display' => $rad->dokter_pengirim,
-                    ],
-                    'performer' => [
-                        [
-                            'reference' => "Practitioner/$rad->kode_dokter_radiologi",
-                            'display' => $rad->dokter_radiologi,
-                        ]
-                    ],
-                    'reasonCode' => [
-                        [
-                            'text' => $rad->alasan_klinis ?? '-',
-                        ]
+                        'text' => 'Modality Code: ' . ($ms->modality ?? 'DX'),
                     ],
                 ],
-                'request' => [
-                    'method' => 'POST',
-                    'url' => 'ServiceRequest',
-                ]
+                'subject' => [
+                    'reference' => "Patient/{$patientId}"
+                ],
+                'encounter' => [
+                    'reference' => $encounterRef
+                ],
+                'occurrenceDateTime' => $rad->tanggal_order
+                    ? date("Y-m-d\TH:i:sP", strtotime($rad->tanggal_order))
+                    : date("Y-m-d\TH:i:sP"),
+                'requester' => [
+                    'reference' => "Practitioner/{$rad->kode_dokter_pengirim}",
+                    'display' => $rad->dokter_pengirim ?? $encounter->dpjp_name,
+                ],
+                'performer' => [
+                    [
+                        'reference' => "Practitioner/{$rad->kode_dokter_radiologi}",
+                        'display' => $rad->dokter_radiologi ?? $encounter->dpjp_name,
+                    ]
+                ],
+                'reasonCode' => [
+                    [
+                        'text' => $rad->alasan_klinis ?? '-',
+                    ]
+                ],
             ];
 
-            /**
-             * =========================
-             * OBSERVATION
-             * =========================
-             */
-            // $entries[] = [
-            //     'fullUrl' => "urn:uuid:$observationId",
-            //     'resource' => [
-            //         'resourceType' => 'Observation',
-            //         'basedOn' => [
-            //             [
-            //                 'reference' => "urn:uuid:$serviceRequestId"
-            //             ]
-            //         ],
-            //         'status' => 'final',
-            //         'category' => [
-            //             [
-            //                 'coding' => [
-            //                     [
-            //                         'system' => 'http://terminology.hl7.org/CodeSystem/observation-category',
-            //                         'code' => 'imaging',
-            //                         'display' => 'Imaging'
-            //                     ]
-            //                 ]
-            //             ]
-            //         ],
-            //         'code' => [
-            //             'coding' => [
-            //                 [
-            //                     'system' => 'http://loinc.org',
-            //                     'code' => $ms->loinc_code,
-            //                     'display' => $ms->loinc_name,
-            //                 ]
-            //             ]
-            //         ],
-            //         'subject' => [
-            //             'reference' => "Patient/$patientId"
-            //         ],
-            //         'encounter' => [
-            //             'reference' => "urn:uuid:$encounterId"
-            //         ],
-            //         'effectiveDateTime' => $rad->tanggal_pemeriksaan
-            //             ? date("Y-m-d\TH:i:sP", strtotime($rad->tanggal_pemeriksaan))
-            //             : null,
-            //         'issued' => $rad->tanggal_hasil
-            //             ? date("Y-m-d\TH:i:sP", strtotime($rad->tanggal_hasil))
-            //             : null,
-            //         'performer' => [
-            //             [
-            //                 'reference' => "Practitioner/$rad->kode_dokter_radiologi",
-            //                 'display' => $rad->dokter_radiologi,
-            //             ]
-            //         ],
-            //         'valueString' => $rad->hasil_pemeriksaan ?? '-',
-            //     ],
-            //     'request' => [
-            //         'method' => 'POST',
-            //         'url' => 'Observation',
-            //     ]
-            // ];
+            if (!empty($existingRadSrId)) {
+                $resource['id'] = $existingRadSrId;
+                $request = ['method' => 'PUT', 'url' => "ServiceRequest/{$existingRadSrId}"];
+            } else {
+                $request = ['method' => 'POST', 'url' => 'ServiceRequest'];
+            }
 
-            /**
-             * =========================
-             * DIAGNOSTIC REPORT
-             * =========================
-             */
-        //     $entries[] = [
-        //         'fullUrl' => "urn:uuid:$diagnosticId",
-        //         'resource' => [
-        //             'resourceType' => 'DiagnosticReport',
-        //             'identifier' => [
-        //                 [
-        //                     'system' => "http://sys-ids.kemkes.go.id/diagnostic/$orgId/rad",
-        //                     'value' => $encounter->visit_id . '-DR-' . $rad->id,
-        //                 ]
-        //             ],
-        //             'basedOn' => [
-        //                 [
-        //                     'reference' => "urn:uuid:$serviceRequestId"
-        //                 ]
-        //             ],
-        //             'status' => 'final',
-        //             'category' => [
-        //                 [
-        //                     'coding' => [
-        //                         [
-        //                             'system' => 'http://terminology.hl7.org/CodeSystem/v2-0074',
-        //                             'code' => 'RAD',
-        //                             'display' => 'Radiology'
-        //                         ]
-        //                     ]
-        //                 ]
-        //             ],
-        //             'code' => [
-        //                 'coding' => [
-        //                     [
-        //                         'system' => 'http://loinc.org',
-        //                         'code' => $ms->loinc_code,
-        //                         'display' => $ms->loinc_name,
-        //                     ]
-        //                 ]
-        //             ],
-        //             'subject' => [
-        //                 'reference' => "Patient/$patientId"
-        //             ],
-        //             'encounter' => [
-        //                 'reference' => "urn:uuid:$encounterId"
-        //             ],
-        //             'effectiveDateTime' => $rad->tanggal_pemeriksaan
-        //                 ? date("Y-m-d\TH:i:sP", strtotime($rad->tanggal_pemeriksaan))
-        //                 : null,
-        //             'issued' => $rad->tanggal_hasil
-        //                 ? date("Y-m-d\TH:i:sP", strtotime($rad->tanggal_hasil))
-        //                 : null,
-        //             'performer' => [
-        //                 [
-        //                     'reference' => "Practitioner/$rad->kode_dokter_radiologi",
-        //                 ],
-        //                 [
-        //                     'reference' => "Organization/$orgId"
-        //                 ]
-        //             ],
-        //             'result' => [
-        //                 [
-        //                     'reference' => "urn:uuid:$observationId"
-        //                 ]
-        //             ],
-        //             'conclusion' => $rad->hasil_pemeriksaan ?? '-',
-        //         ],
-        //         'request' => [
-        //             'method' => 'POST',
-        //             'url' => 'DiagnosticReport',
-        //         ]
-        //     ];
-         }
+            $entries[] = [
+                'fullUrl'  => "urn:uuid:{$serviceRequestId}",
+                'resource' => $resource,
+                'request'  => $request,
+            ];
+        }
 
         return $entries;
     }

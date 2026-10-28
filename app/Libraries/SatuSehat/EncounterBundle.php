@@ -3,16 +3,20 @@
 namespace App\Libraries\SatuSehat;
 
 use App\Models\Visit_encounter;
-use App\Models\Configs;
+use App\Libraries\SatuSehatStorageService;
 
 class EncounterBundle
 {
     public static function build($visitId)
     {        
-        
         $visit = Visit_encounter::with(['diagnossis'])
                     ->where('visit_id', $visitId)
                     ->firstOrFail();
+
+        $storage = new SatuSehatStorageService();
+        $existingEncounterId = $storage->getSpecificResourceId($visitId, 'Encounter');
+        $draft = $storage->getDraft($visitId);
+        $draftFields = $draft['fields'] ?? [];
 
         $diagnosisArray = [];
         foreach ($visit->diagnossis as $diag) {
@@ -42,108 +46,122 @@ class EncounterBundle
 
         $class = $mapClass[$visit->tipe_kunjungan] ?? ['code' => 'AMB', 'display' => 'ambulatory'];
 
-        // Build Encounter bundle
-        $encounterBundle = [
-            "fullUrl" => "urn:uuid:{$visit->uuid_encounter}",
-            "resource" => [
-                "resourceType" => "Encounter",
-                "identifier" => [
-                    [
-                        "system" => "http://sys-ids.kemkes.go.id/encounter/".env('ORG_ID_PROUD'),
-                        "value"  => "$visit->id - encounter"
-                    ]
-                ],
-                "status" => "finished",
-                "statusHistory" => array_values(array_filter([
-                    (strtotime($visit->tgl_kunjung) && strtotime($visit->tgl_dilayani) && strtotime($visit->tgl_kunjung) <= strtotime($visit->tgl_dilayani)) ? [
-                        "status" => "arrived",
-                        "period" => [
-                            "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)),
-                            "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_dilayani))
-                        ]
-                    ] : null,
-                    (strtotime($visit->tgl_dilayani) && strtotime($visit->tgl_selesai_dilayani) && strtotime($visit->tgl_dilayani) <= strtotime($visit->tgl_selesai_dilayani)) ? [
-                        "status" => "in-progress",
-                        "period" => [
-                            "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_dilayani)),
-                            "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_selesai_dilayani))
-                        ]
-                    ] : null,
-                    (strtotime($visit->tgl_selesai_dilayani) && strtotime($visit->tgl_pulang) && strtotime($visit->tgl_selesai_dilayani) <= strtotime($visit->tgl_pulang)) ? [
-                        "status" => "finished",
-                        "period" => [
-                            "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_selesai_dilayani)),
-                            "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_pulang))
-                        ]
-                    ] : null
-                ])),
-                "class" => [
-                    "system" => "http://terminology.hl7.org/CodeSystem/v3-ActCode",
-                    "code"   => $class['code'],
-                    "display" => $class['display']
-                ],
-                "subject" => [
-                    "reference" => "Patient/{$visit->kode_pasien}",
-                    "display"   => $visit->px_name
-                ],
-                "participant" => [
-                    [
-                        "type" => [
-                            [
-                                "coding" => [
-                                    [
-                                        "system"  => "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
-                                        "code"    => "ATND",
-                                        "display" => "attender"
-                                    ]
-                                ]
-                            ]
-                        ],
-                        "individual" => [
-                            "reference" => "Practitioner/{$visit->kode_dokter}",
-                            "display"   => $visit->dpjp_name
-                        ]
-                    ]
-                ],
-                "period" => [
-                    "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)),
-                    "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_pulang))
-                ],
-                "diagnosis" => $diagnosisArray,
-                "hospitalization" => [
-                    "dischargeDisposition" => [
-                        "coding" => [
-                            [
-                                "system"  => "http://terminology.hl7.org/CodeSystem/discharge-disposition",
-                                "code"    => "home",
-                                "display" => "Home"
-                            ]
-                        ],
-                        "text" => "Atas Izin Dokter"
-                    ]
-                ],
-                "location" => [
-                    [
-                        "location" => [
-                            "reference" => "Location/{$visit->idunitsatset}",
-                            "display"   => $visit->unit_name
-                        ],
-                        "period" => [
-                            "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)),
-                            "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_pulang))
-                        ]
-                    ]
-                ],
-                "serviceProvider" => [
-                    "reference" => "Organization/".env('ORG_ID_PROUD')
+        $orgId = env('ORG_ID_PROUD', '100026368');
+        $unitLocationId = $draftFields['idunitsatset'] ?? $visit->idunitsatset;
+
+        // Build Encounter resource
+        $resource = [
+            "resourceType" => "Encounter",
+            "identifier" => [
+                [
+                    "system" => "http://sys-ids.kemkes.go.id/encounter/" . $orgId,
+                    "value"  => "{$visit->id} - encounter"
                 ]
             ],
-            "request" => [
-                "method" => "POST",
-                "url"    => "Encounter"
+            "status" => "finished",
+            "statusHistory" => array_values(array_filter([
+                (strtotime($visit->tgl_kunjung) && strtotime($visit->tgl_dilayani) && strtotime($visit->tgl_kunjung) <= strtotime($visit->tgl_dilayani)) ? [
+                    "status" => "arrived",
+                    "period" => [
+                        "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)),
+                        "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_dilayani))
+                    ]
+                ] : null,
+                (strtotime($visit->tgl_dilayani) && strtotime($visit->tgl_selesai_dilayani) && strtotime($visit->tgl_dilayani) <= strtotime($visit->tgl_selesai_dilayani)) ? [
+                    "status" => "in-progress",
+                    "period" => [
+                        "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_dilayani)),
+                        "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_selesai_dilayani))
+                    ]
+                ] : null,
+                (strtotime($visit->tgl_selesai_dilayani) && strtotime($visit->tgl_pulang) && strtotime($visit->tgl_selesai_dilayani) <= strtotime($visit->tgl_pulang)) ? [
+                    "status" => "finished",
+                    "period" => [
+                        "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_selesai_dilayani)),
+                        "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_pulang))
+                    ]
+                ] : null
+            ])),
+            "class" => [
+                "system"  => "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code"    => $class['code'],
+                "display" => $class['display']
+            ],
+            "subject" => [
+                "reference" => "Patient/{$visit->kode_pasien}",
+                "display"   => $visit->px_name
+            ],
+            "participant" => [
+                [
+                    "type" => [
+                        [
+                            "coding" => [
+                                [
+                                    "system"  => "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                    "code"    => "ATND",
+                                    "display" => "attender"
+                                ]
+                            ]
+                        ]
+                    ],
+                    "individual" => [
+                        "reference" => "Practitioner/{$visit->kode_dokter}",
+                        "display"   => $visit->dpjp_name
+                    ]
+                ]
+            ],
+            "period" => [
+                "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)),
+                "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_pulang))
+            ],
+            "diagnosis" => $diagnosisArray,
+            "hospitalization" => [
+                "dischargeDisposition" => [
+                    "coding" => [
+                        [
+                            "system"  => "http://terminology.hl7.org/CodeSystem/discharge-disposition",
+                            "code"    => "home",
+                            "display" => "Home"
+                        ]
+                    ],
+                    "text" => "Atas Izin Dokter"
+                ]
+            ],
+            "location" => [
+                [
+                    "location" => [
+                        "reference" => "Location/{$unitLocationId}",
+                        "display"   => $visit->unit_name
+                    ],
+                    "period" => [
+                        "start" => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)),
+                        "end"   => date("Y-m-d\TH:i:sP", strtotime($visit->tgl_pulang))
+                    ]
+                ]
+            ],
+            "serviceProvider" => [
+                "reference" => "Organization/" . $orgId
             ]
         ];
 
-        return $encounterBundle;
+        // Jika resource_id sudah ada, gunakan PUT untuk update dan sertakan id
+        if (!empty($existingEncounterId)) {
+            $resource["id"] = $existingEncounterId;
+            $request = [
+                "method" => "PUT",
+                "url"    => "Encounter/{$existingEncounterId}"
+            ];
+        } else {
+            $request = [
+                "method" => "POST",
+                "url"    => "Encounter"
+            ];
+        }
+
+        return [
+            "fullUrl"  => "urn:uuid:{$visit->uuid_encounter}",
+            "resource" => $resource,
+            "request"  => $request
+        ];
     }
 }
