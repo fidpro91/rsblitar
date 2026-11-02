@@ -26,51 +26,77 @@ class SignTteController extends BaseApiController
             return response()->json([
                 "code"    => "500",
                 "message" => "Gagal memproses tanda tangan",
-                "error"   => $e->getMessage() . $e->getLine(),
-                $e->getFile()
+                "error"   => $e->getMessage() . $e->getLine() . $e->getFile()
             ], 500);
         }
+
     }
 
     public function signedpdfJob($request)
     {
-        // --- Persiapan POST ---
-        $post = [
-            "api"           => $request->jenis_berkas == 'pdf'
-                ? config('tte.signPdf')
-                : config('tte.signDocx'),
-            "nik"           => $request->nik,
-            "passphrase"    => $request->passphrase
-        ];
+        $params = [];
         try {
             $this->validateSignedPdfRequest($request);
 
             if ($request->jenis_berkas == 'pdf') {
-                $post["pdf"] = $request->url;
+                $params = [
+                    "api"        => config('tte.signPdf', 'sign'),
+                    "pdf"        => $request->url,
+                    "nik"        => (string) $request->nik,
+                    "passphrase" => (string) $request->passphrase,
+                ];
             } else {
-                $urlDocx      = $this->generateWord($request->url);
-                $post["docx"] = "https://simrs-rsudmw.blitarkota.go.id/sign/" . $urlDocx;
+                $urlDocx = $this->generateWord($request->url);
+                $params = [
+                    "api"        => config('tte.signDocx', 'signdocx'),
+                    "docx"       => config('tte.domainRS', "https://simrs-rsudmw.blitarkota.go.id/sign/") . $urlDocx,
+                    "nik"        => (string) $request->nik,
+                    "passphrase" => (string) $request->passphrase,
+                ];
             }
 
             $url = config('tte.api_url');
 
-            // --- Mengirim request ke server TTE ---
-            $response = Http::timeout(60)->get($url, $post);
+            // --- Mengirim request GET ke server TTE ---
+            $response = Http::withoutVerifying()->timeout(60)->get($url, $params);
 
             if ($response->failed()) {
-                throw new \Exception("Server TTE error: " . $response->body());
+                throw new \Exception("Server TTE HTTP error (" . $response->status() . "): " . $response->body(), $response->status());
             }
 
+            $rawBody = trim($response->body());
             $data = $response->json();
-            // dd($response->json(), $response->body(), $response->status(), $response->headers());
-            if (!isset($data['signed']) || trim($data['signed']) == "") {
-                throw new \Exception("URLx PDF 'signed' tidak valid dari server TTE");
+
+            // Cek jika field 'signed' tidak ada atau kosong
+            if (!is_array($data) || empty($data['signed'])) {
+                $errorMessage = null;
+
+                // 1. Cek format error JSON dari BSrE/TTE: {"error": "Passphrase anda salah", "status_code": 2031}
+                if (is_array($data)) {
+                    if (!empty($data['error'])) {
+                        $errorMessage = is_string($data['error']) ? $data['error'] : json_encode($data['error']);
+                    } elseif (!empty($data['message'])) {
+                        $errorMessage = is_string($data['message']) ? $data['message'] : json_encode($data['message']);
+                    }
+                }
+
+                // 2. Jika respons berupa teks/HTML
+                if (!$errorMessage && !empty($rawBody)) {
+                    $errorMessage = strip_tags(substr($rawBody, 0, 200));
+                }
+
+                // 3. Jika respons benar-benar kosong (khas server TTE jika NIK tidak terdaftar di BSrE)
+                if (!$errorMessage) {
+                    $errorMessage = "Server TTE merespons kosong. NIK ({$params['nik']}) kemungkinan belum terdaftar / belum aktif di BSrE, atau passphrase tidak valid.";
+                }
+
+                throw new \Exception($errorMessage, 403);
             }
 
             // --- Download file hasil sign ---
             $fileContent = @file_get_contents($data['signed']);
             if ($fileContent === false) {
-                throw new \Exception("Gagal mendownload PDF dari URL signed");
+                throw new \Exception("Gagal mendownload PDF dari URL signed: " . $data['signed'], 404);
             }
 
             // --- Simpan ke storage ---
@@ -78,7 +104,7 @@ class SignTteController extends BaseApiController
 
             $saved = Storage::disk('public')->put("signed/" . $fileName, $fileContent);
             if (!$saved) {
-                throw new \Exception("Gagal menyimpan file PDF ke storage");
+                throw new \Exception("Gagal menyimpan file PDF ke storage", 405);
             }
 
             // --- Return sukses ---
@@ -90,18 +116,26 @@ class SignTteController extends BaseApiController
                 ]
             ]);
         } catch (\Exception $e) {
+            $responseBodyToLog = isset($response) ? $response->body() : json_encode($params);
+            if (empty(trim($responseBodyToLog))) {
+                $responseBodyToLog = json_encode([
+                    'request' => $params,
+                    'server_response' => 'RESPONS_KOSONG (Server TTE tidak mengembalikan data, kemungkinan NIK tidak terdaftar di BSrE)'
+                ]);
+            }
+
             $this->logging('sign TTE', [
-                "url"       => $post['api'],
+                "url"       => $params['api'] ?? config('tte.signDocx', 'signdocx'),
                 "method"    => 'get',
-                "code"      => 202,
-                "body"      => json_encode($post),
+                "code"      => $e->getCode() ?: 500,
+                "body"      => $responseBodyToLog,
                 "status"    => 500,
                 "error_message" => $e->getMessage()
             ]);
 
             return response()->json([
                 "code"    => "500",
-                "message" => "Gagal memproses tanda tangan",
+                "message" => "Gagal memproses tanda tangan: " . $e->getMessage(),
                 "error"   => $e->getMessage()
             ], 500);
         }
@@ -188,12 +222,7 @@ class SignTteController extends BaseApiController
 
     public function signedWithTemplate(Request $request)
     {
-        // --- Persiapan POST ---
-        $post = [
-            "api"           => config('tte.signDocx'),
-            "nik"           => $request->nik,
-            "passphrase"    => $request->passphrase
-        ];
+        $params = [];
         try {
             $this->validateSignedPdfRequest($request);
             $urlDocx = app(Word_builderController::class);
@@ -201,30 +230,60 @@ class SignTteController extends BaseApiController
             if ($urlDocx['code'] != 200) {
                 throw new \Exception($urlDocx['message'], $urlDocx['code']);
             }
-            $post["docx"] = config('tte.domainRS') . $urlDocx['file'];
+
+            // Susun parameter GET sesuai spesifikasi API TTE:
+            // ?api=signdocx&docx=https://...&nik=...&passphrase=...
+            $params = [
+                "api"        => config('tte.signDocx', 'signdocx'),
+                "docx"       => config('tte.domainRS') . $urlDocx['file'],
+                "nik"        => (string) $request->nik,
+                "passphrase" => (string) $request->passphrase,
+            ];
+
             $url = config('tte.api_url');
-            // --- Mengirim request ke server TTE ---
-            $response = Http::timeout(60)->get($url, $post);
+
+            // --- Mengirim request GET ke server TTE ---
+            $response = Http::withoutVerifying()->timeout(60)->get($url, $params);
+
             if ($response->failed()) {
-                throw new \Exception("Server TTE error: " . $response->body(), 402);
+                throw new \Exception("Server TTE HTTP error (" . $response->status() . "): " . $response->body(), $response->status());
             }
 
+            $rawBody = trim($response->body());
             $data = $response->json();
-            // dd($response->json(), $response->body(), $response->status(), $response->headers());
-            if (!isset($data['signed']) || trim($data['signed']) == "") {
-                $error = $response->json();
-                if (empty($error)) {
-                    throw new \Exception("URL PDFY 'signed' tidak valid dari server TTE. ", 403);
-                } else {
-                    $error = json_encode($error);
-                    throw new \Exception($error, 403);
+
+            // Cek jika field 'signed' tidak ada atau kosong
+            if (!is_array($data) || empty($data['signed'])) {
+                $errorMessage = null;
+
+                // 1. Cek format error JSON dari BSrE/TTE: {"error": "Passphrase anda salah", "status_code": 2031}
+                if (is_array($data)) {
+                    if (!empty($data['error'])) {
+                        $errorMessage = is_string($data['error']) ? $data['error'] : json_encode($data['error']);
+                    } elseif (!empty($data['message'])) {
+                        $errorMessage = is_string($data['message']) ? $data['message'] : json_encode($data['message']);
+                    }
                 }
+
+                // 2. Jika respons berupa teks/HTML
+                if (!$errorMessage && !empty($rawBody)) {
+                    $errorMessage = strip_tags(substr($rawBody, 0, 200));
+                }
+
+                // 3. Jika respons benar-benar kosong (khas server TTE jika NIK tidak terdaftar di BSrE)
+                if (!$errorMessage) {
+                    $errorMessage = "Server TTE merespons kosong. NIK ({$params['nik']}) kemungkinan belum terdaftar / belum aktif di BSrE, atau passphrase tidak valid.";
+                }
+
+                throw new \Exception($errorMessage, 403);
             }
+
             // --- Download file hasil sign ---
             $fileContent = @file_get_contents($data['signed']);
             if ($fileContent === false) {
-                throw new \Exception("Gagal mendownload PDF dari URL signed", 404);
+                throw new \Exception("Gagal mendownload PDF dari URL signed: " . $data['signed'], 404);
             }
+
             // --- Simpan ke storage ---
             $fileName = $request->berkas . "_" . $request->visit_id . "_" . $request->id_berkas . ".pdf";
             $directori = "signed/$request->visit_id";
@@ -233,6 +292,7 @@ class SignTteController extends BaseApiController
                 throw new \Exception("Gagal menyimpan file PDF ke storage", 405);
             }
             @unlink($urlDocx['location']);
+
             // --- Return sukses ---
             return response()->json([
                 "code"    => "200",
@@ -242,19 +302,26 @@ class SignTteController extends BaseApiController
                 ]
             ]);
         } catch (\Exception $e) {
-            // @unlink($urlDocx['location']);
+            $responseBodyToLog = isset($response) ? $response->body() : json_encode($params);
+            if (empty(trim($responseBodyToLog))) {
+                $responseBodyToLog = json_encode([
+                    'request' => $params,
+                    'server_response' => 'RESPONS_KOSONG (Server TTE tidak mengembalikan data, kemungkinan NIK tidak terdaftar di BSrE)'
+                ]);
+            }
+
             $this->logging('sign TTE', [
-                "url"       => $post['api'],
+                "url"       => $params['api'] ?? config('tte.signDocx', 'signdocx'),
                 "method"    => 'get',
-                "code"      => $e->getCode(),
-                "body"      => json_encode($post),
+                "code"      => $e->getCode() ?: 500,
+                "body"      => $responseBodyToLog,
                 "status"    => 500,
                 "error_message" => $e->getMessage()
             ]);
 
             return response()->json([
-                "code"    => $e->getCode(),
-                "message" => "Gagal memproses tanda tangan",
+                "code"    => $e->getCode() ?: 500,
+                "message" => "Gagal memproses tanda tangan: " . $e->getMessage(),
                 "error"   => $e->getMessage()
             ], 500);
         }
