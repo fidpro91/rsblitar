@@ -64,7 +64,7 @@ class SignTteController extends BaseApiController
             $data = $response->json();
             // dd($response->json(), $response->body(), $response->status(), $response->headers());
             if (!isset($data['signed']) || trim($data['signed']) == "") {
-                throw new \Exception("URL PDF 'signed' tidak valid dari server TTE");
+                throw new \Exception("URLx PDF 'signed' tidak valid dari server TTE");
             }
 
             // --- Download file hasil sign ---
