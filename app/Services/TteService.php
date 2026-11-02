@@ -39,7 +39,7 @@ class TteService
             $response = Http::withoutVerifying()->timeout(60)->get($url, $params);
 
             if ($response->failed()) {
-                throw new \Exception("Server TTE HTTP error (" . $response->status() . "): " . $response->body(), $response->status());
+                throw new \Exception("Server TTE HTTP error (" . $response->status() . "): " . strip_tags($response->body()), $response->status());
             }
 
             $rawBody = trim($response->body());
@@ -58,9 +58,10 @@ class TteService
                     }
                 }
 
-                // 2. Jika respons berupa teks/HTML
+                // 2. Jika respons berupa teks/HTML (misal error IP whitelist: "IP 172.16.20.9 BELUM DIIJINKAN")
                 if (!$errorMessage && !empty($rawBody)) {
-                    $errorMessage = strip_tags(substr($rawBody, 0, 200));
+                    $cleanedText = trim(preg_replace('/\s+/', ' ', strip_tags($rawBody)));
+                    $errorMessage = !empty($cleanedText) ? substr($cleanedText, 0, 250) : null;
                 }
 
                 // 3. Jika respons benar-benar kosong (khas server TTE jika NIK tidak terdaftar di BSrE)
@@ -113,13 +114,25 @@ class TteService
             ]);
 
         } catch (\Exception $e) {
-            // Simpan respons asli server TTE jika ada ke log_http
-            $responseBodyToLog = isset($response) ? $response->body() : json_encode($params);
-            if (empty(trim($responseBodyToLog))) {
+            // Format log response body agar selalu aman untuk kolom JSON PostgreSQL
+            $responseBodyToLog = null;
+            if (isset($response)) {
+                $raw = trim($response->body());
+                $decoded = json_decode($raw, true);
+                if (json_last_error() === JSON_ERROR_NONE && (is_array($decoded) || is_object($decoded))) {
+                    $responseBodyToLog = $raw;
+                } else {
+                    $responseBodyToLog = json_encode([
+                        'request'         => $params,
+                        'server_response' => trim(preg_replace('/\s+/', ' ', strip_tags($raw))),
+                        'raw_html'        => $raw
+                    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                }
+            } else {
                 $responseBodyToLog = json_encode([
                     'request' => $params,
-                    'server_response' => 'RESPONS_KOSONG (Server TTE tidak mengembalikan data, kemungkinan NIK tidak terdaftar di BSrE)'
-                ]);
+                    'error'   => $e->getMessage()
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             }
 
             $this->logging('sign TTE', [
