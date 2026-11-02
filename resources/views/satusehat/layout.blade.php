@@ -294,12 +294,25 @@
         </div>
 
         <div class="sidebar-menu">
-            <a href="{{ route('satusehat.dashboard') }}" class="nav-item-custom {{ request()->routeIs('satusehat.dashboard') && !request()->has('view') ? 'nav-item-active' : '' }}">
-                <i class="bi bi-grid fs-5"></i> Dashboard
+            <!-- ADMINISTRATOR SECTION -->
+            <div class="section-title">ADMINISTRATOR</div>
+
+            <a href="{{ route('admin.dashboard') }}" class="nav-item-custom {{ request()->routeIs('admin.dashboard') || request()->routeIs('admin.home') ? 'nav-item-active' : '' }}">
+                <i class="bi bi-shield-check fs-5"></i> Dashboard Admin
+            </a>
+
+            <a href="{{ route('admin.tte.index') }}" class="nav-item-custom {{ request()->routeIs('admin.tte.*') ? 'nav-item-active' : '' }}">
+                <i class="bi bi-pen fs-5"></i> 
+                <span class="flex-grow-1">Monitoring TTE</span>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-1.5 py-0.5" style="font-size: 10px;">BSrE</span>
             </a>
 
             <!-- SATUSEHAT SECTION -->
             <div class="section-title">SATUSEHAT</div>
+
+            <a href="{{ route('satusehat.dashboard') }}" class="nav-item-custom {{ request()->routeIs('satusehat.dashboard') && !request()->has('view') ? 'nav-item-active' : '' }}">
+                <i class="bi bi-grid fs-5"></i> Dashboard
+            </a>
 
             <a href="{{ route('satusehat.simrs.index') }}" class="nav-item-custom {{ request()->routeIs('satusehat.simrs.*') || request()->routeIs('lihat') ? 'nav-item-active' : '' }}">
                 <i class="bi bi-cloud-arrow-down fs-5"></i> Tarik Data SIMRS
@@ -316,9 +329,6 @@
             <a href="{{ route('satusehat.resource-monitor.index') }}" class="nav-item-custom {{ request()->routeIs('satusehat.resource-monitor.*') ? 'nav-item-active' : '' }}">
                 <i class="bi bi-activity fs-5"></i> Aliran Resource
             </a>
-
-            <!-- SETTING SECTION -->
-           
         </div>
     </div>
 
@@ -345,10 +355,22 @@
                 <div class="text-end lh-sm d-none d-sm-block">
                     <div class="fw-semibold d-flex align-items-center gap-1">
                         <i class="bi bi-person-circle text-primary"></i>
-                        {{ auth()->user()->name ?? '' }}
+                        {{ auth()->user()->name ?? 'Administrator' }}
                     </div>
-                    <small class="text-muted"></small>
+                    <small class="text-muted">{{ auth()->user()->email ?? '' }}</small>
                 </div>
+
+                <!-- Logout Form -->
+                <form action="{{ route('logout') }}" method="POST" class="m-0">
+                    @csrf
+                    <button type="submit" 
+                            onclick="return confirm('Apakah Anda yakin ingin logout?');"
+                            class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
+                            title="Keluar dari sistem">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span class="d-none d-md-inline">Logout</span>
+                    </button>
+                </form>
             </div>
         </div>
 

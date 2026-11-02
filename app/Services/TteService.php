@@ -29,7 +29,7 @@ class TteService
             $post["docx"] = config('tte.domainRS').$urlDocx['file'];
             $url = config('tte.api_url');
             // --- Mengirim request ke server TTE ---
-            $response = Http::asForm()->timeout(60)->post($url, $post);
+            $response = Http::timeout(60)->get($url, $post);
             if ($response->failed()) {
                 throw new \Exception("Server TTE error: " . $response->body(),402);
             }
@@ -69,7 +69,7 @@ class TteService
             // --- Return sukses ---
             $this->logging('sign TTE',[
                 "url"       => $post['api'],
-                "method"    => 'post',
+                "method"    => 'get',
                 "code"      => 200,
                 "body"      => json_encode($data),
                 "status"    => 200,
@@ -85,7 +85,7 @@ class TteService
             // @unlink($urlDocx['location']);
             $this->logging('sign TTE',[
                 "url"       => $post['api'],
-                "method"    => 'post',
+                "method"    => 'get',
                 "code"      => $e->getCode(),
                 "body"      => json_encode($post),
                 "status"    => 500,
