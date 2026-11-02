@@ -214,7 +214,7 @@ class SignTteController extends BaseApiController
             if (!isset($data['signed']) || trim($data['signed']) == "") {
                 $error = $response->json();
                 if (empty($error)) {
-                    throw new \Exception("URL PDF 'signed' tidak valid dari server TTE. ", 403);
+                    throw new \Exception("URL PDFY 'signed' tidak valid dari server TTE. ", 403);
                 } else {
                     $error = json_encode($error);
                     throw new \Exception($error, 403);
