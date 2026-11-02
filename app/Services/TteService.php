@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Services;
 
 use App\Http\Controllers\Api\Word_builderController;
@@ -24,14 +25,14 @@ class TteService
             $urlDocx = app(Word_builderController::class);
             $urlDocx = $urlDocx->generate_word($request);
             if ($urlDocx['code'] != 200) {
-                throw new \Exception($urlDocx['message'],$urlDocx['code']);
+                throw new \Exception($urlDocx['message'], $urlDocx['code']);
             }
-            $post["docx"] = config('tte.domainRS').$urlDocx['file'];
+            $post["docx"] = config('tte.domainRS') . $urlDocx['file'];
             $url = config('tte.api_url');
             // --- Mengirim request ke server TTE ---
             $response = Http::timeout(60)->get($url, $post);
             if ($response->failed()) {
-                throw new \Exception("Server TTE error: " . $response->body(),402);
+                throw new \Exception("Server TTE error: " . $response->body(), 402);
             }
 
             $data = $response->json();
@@ -39,35 +40,35 @@ class TteService
             if (!isset($data['signed']) || trim($data['signed']) == "") {
                 $error = $response->json();
                 if (empty($error)) {
-                    throw new \Exception("URL PDF 'signed' tidak valid dari server TTE. ",403);
-                }else{
-                    $error=json_encode($error);
-                    throw new \Exception($error,403);
+                    throw new \Exception("URL PDF x 'signed' tidak valid dari server TTE. ", 403);
+                } else {
+                    $error = json_encode($error);
+                    throw new \Exception($error, 403);
                 }
             }
             // --- Download file hasil sign ---
             $fileContent = @file_get_contents($data['signed']);
             if ($fileContent === false) {
-                throw new \Exception("Gagal mendownload PDF dari URL signed",404);
+                throw new \Exception("Gagal mendownload PDF dari URL signed", 404);
             }
             // --- Simpan ke storage ---
             $fileName = $request->berkas . "_" . $request->visit_id . "_" . $request->id_berkas . ".pdf";
             $directori = "signed/$request->visit_id";
-            $saved = Storage::disk('public')->put($directori."/".$fileName, $fileContent);
+            $saved = Storage::disk('public')->put($directori . "/" . $fileName, $fileContent);
             if (!$saved) {
-                throw new \Exception("Gagal menyimpan file PDF ke storage",405);
+                throw new \Exception("Gagal menyimpan file PDF ke storage", 405);
             }
             @unlink($urlDocx['location']);
             $pathTTE = config('tte.ip_server') . "storage/$directori/" . $fileName;
             $ehos->table("yanmed.visit")
-                 ->where('visit_id', $request->visit_id)
-                 ->update([
+                ->where('visit_id', $request->visit_id)
+                ->update([
                     'tteresume'         => $pathTTE,
                     'respond_message'   => 'Berhasil sign TTE',
                     'respond_status'    => '200',
                 ]);
             // --- Return sukses ---
-            $this->logging('sign TTE',[
+            $this->logging('sign TTE', [
                 "url"       => $post['api'],
                 "method"    => 'get',
                 "code"      => 200,
@@ -83,7 +84,7 @@ class TteService
             ]);
         } catch (\Exception $e) {
             // @unlink($urlDocx['location']);
-            $this->logging('sign TTE',[
+            $this->logging('sign TTE', [
                 "url"       => $post['api'],
                 "method"    => 'get',
                 "code"      => $e->getCode(),
@@ -93,15 +94,15 @@ class TteService
             ], $request->visit_id);
 
             $ehos->table("yanmed.visit")
-                 ->where('visit_id', $request->visit_id)
-                 ->update([
+                ->where('visit_id', $request->visit_id)
+                ->update([
                     'respond_message'   => $e->getMessage(),
                     'respond_status'    => '500',
                 ]);
         }
     }
 
-    protected function logging($service_name, $data = null,$visit_id)
+    protected function logging($service_name, $data = null, $visit_id)
     {
         Log_http::create(
             [
