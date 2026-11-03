@@ -45,7 +45,7 @@
                     id="tanggalAkhir"
                     name="end_date"
                     class="form-control"
-                    value="{{ $filters['end_date'] ?? request('end_date', '') }}">
+                    value="{{ $filters['end_date'] ?? request('end_date', date('Y-m-d')) }}">
             </div>
 
             <div class="col-md-2">
@@ -82,15 +82,7 @@
             </div>
         </div>
 
-        {{-- QUICK DATE SHORTCUTS --}}
-        <div class="d-flex flex-wrap align-items-center gap-1 mt-2">
-            <small class="text-muted fw-semibold me-2">Tanggal:</small>
-            <button type="button" class="btn btn-light btn-sm py-0 px-2 border text-secondary btn-quick-date-ss" data-date="">Semua</button>
-            <button type="button" class="btn btn-light btn-sm py-0 px-2 border text-secondary btn-quick-date-ss" data-date="{{ date('Y-m-d') }}">Hari Ini</button>
-            <button type="button" class="btn btn-light btn-sm py-0 px-2 border text-secondary btn-quick-date-ss" data-date="{{ date('Y-m-d', strtotime('-1 day')) }}">Kemarin</button>
-            <button type="button" class="btn btn-light btn-sm py-0 px-2 border text-secondary btn-quick-date-ss" data-date="{{ date('Y-m-d', strtotime('-2 day')) }}">2 Hari Lalu</button>
-            <button type="button" class="btn btn-light btn-sm py-0 px-2 border text-secondary btn-quick-date-ss" data-date="{{ date('Y-m-d', strtotime('-7 day')) }}">7 Hari Lalu</button>
-        </div>
+       
     </form>
 </div>
 
