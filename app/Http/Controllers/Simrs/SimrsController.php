@@ -85,12 +85,13 @@ class SimrsController extends Controller
         }
     }
 
+
     public function getSimrsData($withResponse = true)
     {
         $start = Carbon::now()->subDays(10)->startOfDay();
         $end = Carbon::now()->subDays(10)->endOfDay();
 
-        $simrsData = DB::connection('db_simrs')
+        $query = DB::connection('db_simrs')
             ->table('yanmed.visit as v')
             ->join('yanmed.services as s', 'v.visit_id', '=', 's.visit_id')
             ->join('yanmed.patient as px', 'v.px_id', '=', 'px.px_id')
@@ -98,7 +99,6 @@ class SimrsController extends Controller
             ->join('kemkes.location as lo', 's.unit_id', '=', 'lo.unit_id_simrs')
             ->join('kemkes.practitioner as pr', 's.par_id', '=', 'pr.par_id')
             ->join('admin.ms_unit as un', 'un.unit_id', '=', 's.unit_id')
-            ->leftJoin('yanmed.admission as adm', 'adm.visit_id', '=', 'v.visit_id')
             ->select(
                 'v.visit_id',
                 'px.px_noktp',
@@ -116,19 +116,40 @@ class SimrsController extends Controller
                 's.srv_type as tipe_kunjungan',
                 's.srv_id'
             )
+            ->selectRaw("
+            ROW_NUMBER() OVER (
+                PARTITION BY v.visit_id
+                ORDER BY
+                    CASE
+                        WHEN un.unit_type IN (22, 67) THEN 1
+                        WHEN un.unit_type = 23 THEN 2
+                        ELSE 3
+                    END ASC,
+                    s.srv_in DESC,
+                    s.srv_id DESC
+            ) AS urutan
+        ")
             ->where('v.visit_end_date', '>=', $start)
             ->where('v.visit_end_date', '<=', $end)
-            ->whereIn('un.unit_type', [21, 23, 67])
-            ->whereNull('adm.admission_id')
+            ->whereIn('un.unit_type', [21, 23, 67, 22, 66])
             ->where('s.srv_status', '!=', 35)
-            ->where('before_srv_id', '=', '0')
+            ->where('s.before_srv_id', '=', '0');
+
+        $simrsData = DB::connection('db_simrs')->query()
+            ->fromSub($query, 'data_kunjungan')
+            ->where('urutan', 1)
             ->get();
 
         if ($withResponse) {
-            return response()->json(['message' => 'Data berhasil diinsert', 'data' => $simrsData]);
+            return response()->json([
+                'message' => 'Data berhasil diambil',
+                'data' => $simrsData
+            ]);
         }
+
         return $simrsData;
     }
+
     public function getDiagnosa($visitIds = [], $withResponse = true)
     {
         $query = DB::connection('db_simrs')

@@ -31,7 +31,10 @@ class Visit_encounter extends Model
         'instruksi_pulang',
         'uuid_composition',
         'uuid_clinicalimpresion',
-        'srv_id'
+        'srv_id',
+        'bundle_status',
+        'uuid_episodeofcare',
+        'retry_count'
     ];
     public $timestamps = true;
 

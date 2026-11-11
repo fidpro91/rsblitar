@@ -34,212 +34,503 @@ class SatusehatDashboardController extends Controller
     /**
      * Dashboard pemantauan dan tabel daftar pengiriman SATUSEHAT.
      */
+
     public function index(Request $request)
     {
+        // =========================================================
+        // 1. FILTER INPUT
+        // =========================================================
         $allowedStatuses = ['ALL', 'SUCCESS', 'FAILED', 'DRAFT', 'PENDING'];
+
         $statusFilter = strtoupper((string) $request->query('status', 'ALL'));
+
         if (!in_array($statusFilter, $allowedStatuses, true)) {
             $statusFilter = 'ALL';
         }
 
         $search = trim((string) $request->query('search', ''));
+
         $startDate = $request->query('start_date', now()->toDateString());
         $endDate = $request->query('end_date');
+
         $perPage = max(5, min(100, (int) $request->query('per_page', 15)));
 
-        // Validasi format tanggal agar query tidak menerima input tanggal yang tidak valid.
-        foreach (['start_date' => $startDate, 'end_date' => $endDate] as $key => $value) {
+        // =========================================================
+        // 2. VALIDASI TANGGAL
+        // =========================================================
+        foreach (
+            [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ] as $key => $value
+        ) {
+
             if ($value !== null && $value !== '') {
                 try {
                     $parsed = \Carbon\Carbon::createFromFormat('!Y-m-d', $value);
+
                     if (!$parsed || $parsed->format('Y-m-d') !== $value) {
                         throw new \InvalidArgumentException('Format tanggal tidak valid.');
                     }
                 } catch (\Throwable $e) {
-                    return back()->withInput()->withErrors([$key => 'Format tanggal harus YYYY-MM-DD.']);
+                    return back()
+                        ->withInput()
+                        ->withErrors([
+                            $key => 'Format tanggal harus YYYY-MM-DD.'
+                        ]);
                 }
             }
         }
 
         if ($startDate && $endDate && $endDate < $startDate) {
-            return back()->withInput()->withErrors(['end_date' => 'Tanggal akhir tidak boleh lebih awal dari tanggal awal.']);
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'end_date' => 'Tanggal akhir tidak boleh lebih awal dari tanggal awal.'
+                ]);
         }
 
+        // =========================================================
+        // 3. INISIALISASI
+        // =========================================================
         $dbEncountersAvailable = false;
+
         $encounters = collect();
         $paginator = null;
-        $metrics = ['total' => 0, 'success' => 0, 'failed' => 0, 'pending' => 0, 'in_progress' => 0];
+
+        $metrics = [
+            'total' => 0,
+            'success' => 0,
+            'failed' => 0,
+            'pending' => 0,
+            'in_progress' => 0,
+        ];
+
         $hasBundleStatus = false;
 
+        // =========================================================
+        // 4. QUERY DATABASE
+        // =========================================================
         try {
-            $table = (new Visit_encounter())->getTable();
-            $hasBundleStatus = \Illuminate\Support\Facades\Schema::hasColumn($table, 'bundle_status');
 
-            // Kolom diagnosis tidak dipakai pada halaman daftar; jangan eager-load tanpa kebutuhan.
+            $table = (new Visit_encounter())->getTable();
+
+            $hasBundleStatus = \Illuminate\Support\Facades\Schema::hasColumn(
+                $table,
+                'bundle_status'
+            );
+
             $baseQuery = Visit_encounter::query();
 
+            // -----------------------------------------------------
+            // SEARCH
+            // -----------------------------------------------------
             if ($search !== '') {
+
                 $baseQuery->where(function ($q) use ($search) {
-                    $q->where('px_name', 'ilike', "%{$search}%")
-                      ->orWhere('px_norm', 'like', "%{$search}%")
-                      ->orWhere('visit_id', 'like', "%{$search}%")
-                      ->orWhere('unit_name', 'ilike', "%{$search}%");
+
+                    $q->where('px_name', 'ILIKE', "%{$search}%")
+                        ->orWhere('px_norm', 'ILIKE', "%{$search}%")
+                        ->orWhereRaw(
+                            'CAST(visit_id AS TEXT) ILIKE ?',
+                            ["%{$search}%"]
+                        )
+                        ->orWhere('unit_name', 'ILIKE', "%{$search}%");
                 });
             }
 
-            // Gunakan rentang timestamp, bukan whereDate(), agar indeks tgl_kunjung dapat dipakai.
+            // -----------------------------------------------------
+            // FILTER TANGGAL
+            // -----------------------------------------------------
             if ($startDate !== null && $startDate !== '') {
-                $baseQuery->where('tgl_kunjung', '>=', $startDate . ' 00:00:00');
-            }
-            if ($endDate !== null && $endDate !== '') {
-                $baseQuery->where('tgl_kunjung', '<', \Carbon\Carbon::parse($endDate)->addDay()->toDateString() . ' 00:00:00');
-            } elseif ($startDate !== null && $startDate !== '') {
-                $baseQuery->where('tgl_kunjung', '<', \Carbon\Carbon::parse($startDate)->addDay()->toDateString() . ' 00:00:00');
+
+                $baseQuery->where(
+                    'tgl_kunjung',
+                    '>=',
+                    $startDate . ' 00:00:00'
+                );
             }
 
-            // Statistik dihitung dari filter tanggal dan pencarian, tanpa status aktif.
+            if ($endDate !== null && $endDate !== '') {
+
+                $endExclusive = \Carbon\Carbon::parse($endDate)
+                    ->addDay()
+                    ->toDateString();
+
+                $baseQuery->where(
+                    'tgl_kunjung',
+                    '<',
+                    $endExclusive . ' 00:00:00'
+                );
+            } elseif ($startDate !== null && $startDate !== '') {
+
+                $endExclusive = \Carbon\Carbon::parse($startDate)
+                    ->addDay()
+                    ->toDateString();
+
+                $baseQuery->where(
+                    'tgl_kunjung',
+                    '<',
+                    $endExclusive . ' 00:00:00'
+                );
+            }
+
+            // =====================================================
+            // 5. HITUNG STATISTIK
+            // =====================================================
             $metrics['total'] = (clone $baseQuery)->count();
+
             if ($hasBundleStatus) {
-                $metrics['success'] = (clone $baseQuery)->where(function ($q) {
-                    $q->where('bundle_status', 'SUCCESS')->orWhere('is_send', true);
-                })->count();
-                $metrics['failed'] = (clone $baseQuery)->where('bundle_status', 'FAILED')
-                    ->where(function ($q) { $q->where('is_send', false)->orWhereNull('is_send'); })
+
+                // SUCCESS hanya berdasarkan bundle_status.
+                $metrics['success'] = (clone $baseQuery)
+                    ->where('bundle_status', 'SUCCESS')
+                    ->count();
+
+                // FAILED hanya berdasarkan bundle_status.
+                $metrics['failed'] = (clone $baseQuery)
+                    ->where('bundle_status', 'FAILED')
                     ->count();
             } else {
-                $metrics['success'] = (clone $baseQuery)->where('is_send', true)->count();
-                // Tanpa kolom bundle_status, database tidak bisa membedakan gagal dan draft.
+
+                // Fallback jika kolom bundle_status belum tersedia.
+                $metrics['success'] = (clone $baseQuery)
+                    ->where('is_send', true)
+                    ->count();
+
                 $metrics['failed'] = 0;
             }
-            $metrics['pending'] = max(0, $metrics['total'] - $metrics['success'] - $metrics['failed']);
 
+            // Sisa data selain SUCCESS dan FAILED.
+            // Termasuk DRAFT, PENDING, dan status kosong.
+            $metrics['pending'] = max(
+                0,
+                $metrics['total']
+                    - $metrics['success']
+                    - $metrics['failed']
+            );
+
+            // =====================================================
+            // 6. FILTER STATUS
+            // =====================================================
             $query = clone $baseQuery;
+
             if ($statusFilter === 'SUCCESS') {
-                $query->where(function ($q) use ($hasBundleStatus) {
-                    if ($hasBundleStatus) $q->where('bundle_status', 'SUCCESS')->orWhere('is_send', true);
-                    else $q->where('is_send', true);
-                });
-            } elseif ($statusFilter === 'FAILED') {
+
                 if ($hasBundleStatus) {
-                    $query->where('bundle_status', 'FAILED')
-                        ->where(function ($q) { $q->where('is_send', false)->orWhereNull('is_send'); });
+
+                    $query->where('bundle_status', 'SUCCESS');
                 } else {
-                    // Tidak ada sumber status gagal yang dapat difilter di tabel ini.
+
+                    $query->where('is_send', true);
+                }
+            } elseif ($statusFilter === 'FAILED') {
+
+                if ($hasBundleStatus) {
+
+                    $query->where('bundle_status', 'FAILED');
+                } else {
+
+                    // Tidak ada kolom status gagal.
                     $query->whereRaw('1 = 0');
                 }
-            } elseif (in_array($statusFilter, ['DRAFT', 'PENDING'], true)) {
+            } elseif ($statusFilter === 'DRAFT') {
+
                 if ($hasBundleStatus) {
+
                     $query->where(function ($q) {
-                        $q->whereNull('bundle_status')->orWhereIn('bundle_status', ['DRAFT', 'PENDING']);
-                    })->where(function ($q) { $q->where('is_send', false)->orWhereNull('is_send'); });
+
+                        $q->whereNull('bundle_status')
+                            ->orWhere('bundle_status', 'DRAFT');
+                    });
                 } else {
-                    $query->where(function ($q) { $q->where('is_send', false)->orWhereNull('is_send'); });
+
+                    $query->where(function ($q) {
+                        $q->where('is_send', false)
+                            ->orWhereNull('is_send');
+                    });
+                }
+            } elseif ($statusFilter === 'PENDING') {
+
+                if ($hasBundleStatus) {
+
+                    $query->where('bundle_status', 'PENDING');
+                } else {
+
+                    // Tanpa bundle_status, PENDING tidak bisa dibedakan
+                    // dari DRAFT.
+                    $query->whereRaw('1 = 0');
                 }
             }
 
-            $paginator = $query->orderByDesc('tgl_kunjung')->orderByDesc('id')
-                ->paginate($perPage)->withQueryString();
+            // =====================================================
+            // 7. PAGINATION
+            // =====================================================
+            $paginator = $query
+                ->orderByDesc('tgl_kunjung')
+                ->orderByDesc('id')
+                ->paginate($perPage)
+                ->withQueryString();
+
             $encounters = collect($paginator->items());
+
             $dbEncountersAvailable = true;
         } catch (\Throwable $e) {
-            Log::warning('Gagal membaca visit_encounter untuk dashboard SATUSEHAT.', [
-                'message' => $e->getMessage(),
-            ]);
+
+            \Illuminate\Support\Facades\Log::warning(
+                'Gagal membaca visit_encounter untuk dashboard SATUSEHAT.',
+                [
+                    'message' => $e->getMessage(),
+                ]
+            );
+
+            $dbEncountersAvailable = false;
         }
 
+        // =========================================================
+        // 8. FALLBACK JIKA DATABASE TIDAK TERSEDIA
+        // =========================================================
         if (!$dbEncountersAvailable) {
-            $fallbackEncounters = $this->loadFallbackEncountersFromStorageOrRespon($search, $statusFilter, $startDate, $endDate);
-            $metrics['total'] = count($fallbackEncounters);
-            $metrics['success'] = count(array_filter($fallbackEncounters, fn ($e) => !empty($e['is_send'])));
-            $metrics['failed'] = count(array_filter($fallbackEncounters, fn ($e) => ($e['status'] ?? '') === 'FAILED'));
-            $metrics['pending'] = max(0, $metrics['total'] - $metrics['success'] - $metrics['failed']);
 
+            $fallbackEncounters = $this->loadFallbackEncountersFromStorageOrRespon(
+                $search,
+                $statusFilter,
+                $startDate,
+                $endDate
+            );
+
+            $metrics['total'] = count($fallbackEncounters);
+
+            $metrics['success'] = count(array_filter(
+                $fallbackEncounters,
+                function ($e) {
+                    return strtoupper((string) ($e['status'] ?? '')) === 'SUCCESS'
+                        || !empty($e['is_send']);
+                }
+            ));
+
+            $metrics['failed'] = count(array_filter(
+                $fallbackEncounters,
+                function ($e) {
+                    return strtoupper((string) ($e['status'] ?? '')) === 'FAILED';
+                }
+            ));
+
+            $metrics['pending'] = max(
+                0,
+                $metrics['total']
+                    - $metrics['success']
+                    - $metrics['failed']
+            );
+
+            // Filter tambahan untuk fallback.
             if ($statusFilter !== 'ALL') {
-                $fallbackEncounters = array_values(array_filter($fallbackEncounters, function ($e) use ($statusFilter) {
-                    $status = strtoupper((string) ($e['status'] ?? (!empty($e['is_send']) ? 'SUCCESS' : 'DRAFT')));
-                    return $statusFilter === 'PENDING' ? in_array($status, ['PENDING', 'DRAFT'], true) : $status === $statusFilter;
-                }));
+
+                $fallbackEncounters = array_values(
+                    array_filter(
+                        $fallbackEncounters,
+                        function ($e) use ($statusFilter) {
+
+                            $status = strtoupper(
+                                (string) (
+                                    $e['status']
+                                    ?? (!empty($e['is_send']) ? 'SUCCESS' : 'DRAFT')
+                                )
+                            );
+
+                            if ($statusFilter === 'DRAFT') {
+                                return $status === 'DRAFT';
+                            }
+
+                            if ($statusFilter === 'PENDING') {
+                                return $status === 'PENDING';
+                            }
+
+                            return $status === $statusFilter;
+                        }
+                    )
+                );
             }
 
             $page = max(1, (int) $request->query('page', 1));
-            $paginator = new LengthAwarePaginator(
-                array_slice($fallbackEncounters, ($page - 1) * $perPage, $perPage),
-                count($fallbackEncounters), $perPage, $page,
-                ['path' => $request->url(), 'query' => $request->query()]
+
+            $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+                array_slice(
+                    $fallbackEncounters,
+                    ($page - 1) * $perPage,
+                    $perPage
+                ),
+                count($fallbackEncounters),
+                $perPage,
+                $page,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
             );
+
             $encounters = collect($paginator->items());
         }
 
-        // Status storage dibaca hanya untuk halaman yang sedang ditampilkan.
-        $decoratedEncounters = $encounters->map(function ($enc) {
-            $get = static function ($row, string $key, $default = null) {
-                return is_object($row) ? ($row->{$key} ?? $default) : ($row[$key] ?? $default);
-            };
-            $visitId = (string) $get($enc, 'visit_id', '');
-            $storageResources = $this->storage->getResourceIds($visitId) ?: [];
-            $lastLog = $this->storage->getLastLog($visitId);
-            $draft = $this->storage->getDraft($visitId);
-            $encounterResourceId = $storageResources['Encounter']['resource_id'] ?? null;
-            $hasDbSend = (bool) $get($enc, 'is_send', false);
+        // =========================================================
+        // 9. DEKORASI DATA TABEL
+        // =========================================================
+        $decoratedEncounters = $encounters->map(function ($enc) use ($hasBundleStatus, $dbEncountersAvailable) {
 
-            if ($encounterResourceId || ($lastLog['status'] ?? null) === 'SUCCESS' || $hasDbSend) {
-                $computedStatus = 'SUCCESS';
-            } elseif (in_array($lastLog['status'] ?? null, ['FAILED', 'EXCEPTION', 'TIMEOUT'], true)) {
-                $computedStatus = 'FAILED';
+            $get = static function ($row, string $key, $default = null) {
+
+                return is_object($row)
+                    ? ($row->{$key} ?? $default)
+                    : ($row[$key] ?? $default);
+            };
+
+            $visitId = (string) $get($enc, 'visit_id', '');
+
+            // Storage hanya untuk informasi resource dan log.
+            $storageResources = $this->storage->getResourceIds($visitId) ?: [];
+
+            $lastLog = $this->storage->getLastLog($visitId);
+
+            $draft = $this->storage->getDraft($visitId);
+
+            $encounterResourceId =
+                $storageResources['Encounter']['resource_id'] ?? null;
+
+            // -----------------------------------------------------
+            // STATUS DATABASE SEBAGAI SUMBER UTAMA
+            // -----------------------------------------------------
+            if ($dbEncountersAvailable && $hasBundleStatus) {
+
+                $dbStatus = strtoupper(
+                    trim((string) $get($enc, 'bundle_status', ''))
+                );
+
+                if ($dbStatus === 'SUCCESS') {
+
+                    $computedStatus = 'SUCCESS';
+                } elseif ($dbStatus === 'FAILED') {
+
+                    $computedStatus = 'FAILED';
+                } elseif ($dbStatus === 'PENDING') {
+
+                    $computedStatus = 'PENDING';
+                } else {
+
+                    // DRAFT atau NULL.
+                    $computedStatus = 'DRAFT';
+                }
             } else {
-                $computedStatus = !empty($draft) ? 'DRAFT' : 'DRAFT';
+
+                // Fallback jika bundle_status tidak tersedia.
+                $hasDbSend = (bool) $get($enc, 'is_send', false);
+
+                $computedStatus = $hasDbSend
+                    ? 'SUCCESS'
+                    : 'DRAFT';
             }
 
             $pxName = trim((string) $get($enc, 'px_name', ''));
+
             return (object) [
+
                 'id' => $get($enc, 'id'),
+
                 'visit_id' => $visitId,
+
                 'px_norm' => $get($enc, 'px_norm', '-') ?: '-',
-                'px_name' => $pxName !== '' ? $pxName : 'Nama pasien tidak tersedia',
+
+                'px_name' => $pxName !== ''
+                    ? $pxName
+                    : 'Nama pasien tidak tersedia',
+
                 'kode_pasien' => $get($enc, 'kode_pasien', '-') ?: '-',
+
                 'dpjp_name' => $get($enc, 'dpjp_name', '-') ?: '-',
+
                 'unit_name' => $get($enc, 'unit_name', '-') ?: '-',
+
                 'tgl_kunjung' => $get($enc, 'tgl_kunjung'),
+
                 'tgl_dilayani' => $get($enc, 'tgl_dilayani'),
+
                 'tgl_pulang' => $get($enc, 'tgl_pulang'),
+
                 'computed_status' => $computedStatus,
+
+                // Informasi resource SATUSEHAT.
                 'encounter_satusehat' => $encounterResourceId,
+
                 'resources_count' => count($storageResources),
+
+                // Informasi log terakhir.
                 'last_error' => $lastLog['message'] ?? null,
+
                 'error_type' => $lastLog['error_type'] ?? null,
-                'last_sent_at' => $lastLog['timestamp'] ?? $lastLog['logged_at'] ?? null,
+
+                'last_sent_at' => $lastLog['timestamp']
+                    ?? $lastLog['logged_at']
+                    ?? null,
+
                 'has_draft' => !empty($draft),
             ];
         });
 
-        // Statistik riwayat respons tidak perlu menghitung status dengan LIKE wildcard.
+        // =========================================================
+        // 10. STATISTIK RESPON SATUSEHAT
+        // =========================================================
         try {
+
             $dbResponStats = [
+
                 'total_responses' => Respon_satusehat::count(),
-                'created_201' => Respon_satusehat::where('status', 'like', '201%')->count(),
+
+                'created_201' => Respon_satusehat::where(
+                    'status',
+                    'like',
+                    '201%'
+                )->count(),
+
                 'errors' => Respon_satusehat::where(function ($q) {
-                    $q->whereNull('status')->orWhere('status', 'not like', '201%');
+
+                    $q->whereNull('status')
+                        ->orWhere('status', 'not like', '201%');
                 })->count(),
             ];
         } catch (\Throwable $e) {
+
             $dbResponStats = null;
         }
 
+        // =========================================================
+        // 11. RETURN VIEW
+        // =========================================================
         return view('satusehat.dashboard', [
+
             'encounters' => $decoratedEncounters,
+
             'paginator' => $paginator,
+
             'metrics' => $metrics,
+
             'dbResponStats' => $dbResponStats,
+
             'filters' => [
+
                 'status' => $statusFilter,
+
                 'search' => $search,
+
                 'start_date' => $startDate,
+
                 'end_date' => $endDate,
+
                 'per_page' => $perPage,
             ],
+
             'dbAvailable' => $dbEncountersAvailable,
         ]);
     }
+
 
     /**
      * Halaman detail encounter, inspeksi payload FHIR, log respons, dan perbaikan data draft.
@@ -293,8 +584,8 @@ class SatusehatDashboardController extends Controller
         // Sanitasi identitas pasien untuk keamanan privasi (masking KTP)
         if ($encounter && !empty($encounter->no_ktp)) {
             $ktpStr = (string) $encounter->no_ktp;
-            $encounter->no_ktp_masked = strlen($ktpStr) >= 8 
-                ? substr($ktpStr, 0, 4) . '******' . substr($ktpStr, -4) 
+            $encounter->no_ktp_masked = strlen($ktpStr) >= 8
+                ? substr($ktpStr, 0, 4) . '******' . substr($ktpStr, -4)
                 : '******';
         }
 
@@ -388,7 +679,7 @@ class SatusehatDashboardController extends Controller
             'error_type'   => $result['error_type'] ?? null,
             'captured_ids' => $result['captured_ids'] ?? [],
             'issues'       => $result['issues'] ?? [],
-            'created_count'=> $result['created_count'] ?? 0,
+            'created_count' => $result['created_count'] ?? 0,
         ], $httpCode >= 200 && $httpCode <= 500 ? $httpCode : 200);
     }
 
@@ -402,7 +693,7 @@ class SatusehatDashboardController extends Controller
         $data = [
             'visit_id'         => $visitId,
             'exported_at'      => now()->toIso8601String(),
-            'storage_resources'=> $this->storage->getResourceIds($visitId),
+            'storage_resources' => $this->storage->getResourceIds($visitId),
             'logs'             => $this->storage->getLogs($visitId),
             'draft'            => $this->storage->getDraft($visitId),
         ];
@@ -429,7 +720,7 @@ class SatusehatDashboardController extends Controller
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('visit_id', 'like', "%{$search}%")
-                      ->orWhere('pasien_id', 'like', "%{$search}%");
+                        ->orWhere('pasien_id', 'like', "%{$search}%");
                 });
             }
             if (!empty($startDate)) {
@@ -533,7 +824,7 @@ class SatusehatDashboardController extends Controller
         ]);
     }
 
-    
+
     /**
      * Memulai pengiriman batch seluruh data kunjungan ke SATUSEHAT melalui Laravel Job Queue.
      */
@@ -558,10 +849,10 @@ class SatusehatDashboardController extends Controller
                 if (!empty($filters['start_date'])) {
                     if (!empty($filters['end_date'])) {
                         $query->where('tgl_kunjung', '>=', $filters['start_date'] . ' 00:00:00')
-                              ->where('tgl_kunjung', '<', \Carbon\Carbon::parse($filters['end_date'])->addDay()->toDateString() . ' 00:00:00');
+                            ->where('tgl_kunjung', '<', \Carbon\Carbon::parse($filters['end_date'])->addDay()->toDateString() . ' 00:00:00');
                     } else {
                         $query->where('tgl_kunjung', '>=', $filters['start_date'] . ' 00:00:00')
-                              ->where('tgl_kunjung', '<', \Carbon\Carbon::parse($filters['start_date'])->addDay()->toDateString() . ' 00:00:00');
+                            ->where('tgl_kunjung', '<', \Carbon\Carbon::parse($filters['start_date'])->addDay()->toDateString() . ' 00:00:00');
                     }
                 } elseif (!empty($filters['end_date'])) {
                     $query->where('tgl_kunjung', '<', \Carbon\Carbon::parse($filters['end_date'])->addDay()->toDateString() . ' 00:00:00');
@@ -571,9 +862,9 @@ class SatusehatDashboardController extends Controller
                     $search = trim($filters['search']);
                     $query->where(function ($q) use ($search) {
                         $q->where('px_name', 'ilike', "%{$search}%")
-                          ->orWhere('px_norm', 'like', "%{$search}%")
-                          ->orWhere('visit_id', 'like', "%{$search}%")
-                          ->orWhere('unit_name', 'ilike', "%{$search}%");
+                            ->orWhere('px_norm', 'like', "%{$search}%")
+                            ->orWhere('visit_id', 'like', "%{$search}%")
+                            ->orWhere('unit_name', 'ilike', "%{$search}%");
                     });
                 }
 
@@ -588,13 +879,19 @@ class SatusehatDashboardController extends Controller
                             $q->whereNull('bundle_status')->orWhereIn('bundle_status', ['DRAFT', 'PENDING']);
                         });
                     }
-                    $query->where(function ($q) { $q->where('is_send', false)->orWhereNull('is_send'); });
+                    $query->where(function ($q) {
+                        $q->where('is_send', false)->orWhereNull('is_send');
+                    });
                 } elseif ($st === 'SUCCESS') {
-                    if ($hasBundleStatus) $query->where(function ($q) { $q->where('bundle_status', 'SUCCESS')->orWhere('is_send', true); });
+                    if ($hasBundleStatus) $query->where(function ($q) {
+                        $q->where('bundle_status', 'SUCCESS')->orWhere('is_send', true);
+                    });
                     else $query->where('is_send', true);
                 } else {
                     // ALL hanya menjadwalkan data yang belum ditandai terkirim.
-                    $query->where(function ($q) { $q->where('is_send', false)->orWhereNull('is_send'); });
+                    $query->where(function ($q) {
+                        $q->where('is_send', false)->orWhereNull('is_send');
+                    });
                 }
             }
 
@@ -618,7 +915,7 @@ class SatusehatDashboardController extends Controller
         ], 202);
     }
 
-    
+
     public function failedIndex(Request $request)
     {
         $startDate = $request->query('start_date');
@@ -822,8 +1119,14 @@ class SatusehatDashboardController extends Controller
         $user = auth()->user()->name ?? 'Petugas SIMRS';
 
         $inputs = $request->except([
-            '_token', 'reason', 'submit_type', 'staging_id', 'staging_table',
-            'resource_type', 'active_tab', 'redirect_to'
+            '_token',
+            'reason',
+            'submit_type',
+            'staging_id',
+            'staging_table',
+            'resource_type',
+            'active_tab',
+            'redirect_to'
         ]);
 
         if ($stagingTable) {

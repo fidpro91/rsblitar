@@ -17,7 +17,7 @@ class EpisodeOfCareBundle
         $draftFields = $draft['fields'] ?? [];
 
         $uuidepisode = (string) \Illuminate\Support\Str::uuid();
-        $orgId = env('ORG_ID_PROUD', '100026368');
+        $orgId = env('ORG_ID_PROUD');
 
         $tglKunjung = !empty($visit->tgl_kunjung) 
             ? date("Y-m-d\TH:i:sP", strtotime($visit->tgl_kunjung)) 
@@ -28,7 +28,7 @@ class EpisodeOfCareBundle
 
         if (!$isExisting) {
            
-            $status = "active";
+            $status = "completed";
             $period = [
                 "start" => $tglKunjung
             ];
@@ -59,7 +59,7 @@ class EpisodeOfCareBundle
                     "value"  => (string) $visit->visit_id
                 ]
             ],              
-            "status"       => $status,
+            "status"       => 'active',
             "patient"      => [
                 "reference" => "Patient/" . $visit->kode_pasien
             ],
