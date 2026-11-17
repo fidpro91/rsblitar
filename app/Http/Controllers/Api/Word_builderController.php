@@ -54,8 +54,8 @@ class Word_builderController
                 return [
                     "diag.no"         => $i + 1,
                     "diag.nama"       => $d['diagnosa_name'],
-                    "diag.kode_im"    => $d['kode_im'],
-                    "diag.kode_icd10" => $d['icd10'],
+                    "diag.kode_im"    => $d['kode_im'] ?? Null,
+                    "diag.kode_icd10" => $d['icd10'] ?? Null,
                     "diag.kasus"      => $d['kasus'],
                     "diag.poli"       => $d['poli_name'],
                     "diag.dokter"     => $d['dokter'],
@@ -71,8 +71,8 @@ class Word_builderController
                     return [
                         "tind.no"               => $i + 1,
                         "tind.nama"             => $d['nama'],
-                        "tind.kode_im"          => $d['kode_im'],
-                        "tind.kode_icd9"        => $d['kode_icd9'],
+                        "tind.kode_im"          => $d['kode_im'] ?? Null,
+                        "tind.kode_icd9"        => $d['kode_icd9'] ?? Null,
                         "tind.dokter"           => $d['dokter'],
                     ];
                 })
