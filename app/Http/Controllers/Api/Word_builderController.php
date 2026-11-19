@@ -34,7 +34,7 @@ class Word_builderController
 
     private function set_resume_medis($request)
     {
-        $this->validasi_resumeMedis($request);
+        //$this->validasi_resumeMedis($request);
 
         $templatePath = storage_path('app/template/resume_medis.docx');
         if (!file_exists($templatePath)) {
@@ -71,7 +71,7 @@ class Word_builderController
                     return [
                         "tind.no"               => $i + 1,
                         "tind.nama"             => $d['nama'],
-                        "tind.kode_im"          => $d['kode_im'] ?? Null,
+                        //"tind.kode_im"          => $d['kode_im'] ?? Null,
                         //"tind.kode_icd9"        => $d['kode_icd9'] ?? Null,
                         "tind.dokter"           => $d['dokter'],
                     ];
@@ -81,8 +81,8 @@ class Word_builderController
         } else {
             $template->setValue('tind.no', '');
             $template->setValue('tind.nama', '');
-            $template->setValue('tind.kode_im', '');
-            $template->setValue('tind.kode_icd9', '');
+            //$template->setValue('tind.kode_im', '');
+            //$template->setValue('tind.kode_icd9', '');
             $template->setValue('tind.dokter', '');
         }
 
@@ -270,7 +270,7 @@ class Word_builderController
                 // diagnosa
                 'data.diagnosa'                     => 'required|array|min:1',
                 'data.diagnosa.*.diagnosa_name'     => 'required|string',
-               // 'data.diagnosa.*.kode_im'           => 'required|string',
+                //'data.diagnosa.*.kode_im'           => 'required|string',
                 //'data.diagnosa.*.icd10'             => 'required|string',
                 'data.diagnosa.*.kasus'             => 'required|string',
                 'data.diagnosa.*.poli_name'         => 'required|string',
