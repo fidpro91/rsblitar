@@ -3,137 +3,71 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\ServicesBundle\CronsendBundle;
-use App\Models\Visit_encounter;
-use Illuminate\Support\Facades\DB;
+use App\Jobs\SendAllSatusehatJob;
 use Illuminate\Support\Facades\Log;
 
 class SendBundleSatusehat extends Command
 {
-    protected $signature = 'satusehat:send {--chunk=20}';
-    protected $description = 'Kirim bundle SatuSehat';
+    protected $signature = 'satusehat:send
+        {--chunk=50 : Jumlah data per batch}
+        {--start-date= : Tanggal awal kunjungan}
+        {--end-date= : Tanggal akhir kunjungan}
+        {--search= : Pencarian pasien atau kunjungan}
+        {--status=ALL : Status pengiriman}';
 
-    public function handle()
+    protected $description = 'Jadwalkan pengiriman bundle SATUSEHAT melalui Queue';
+
+    public function handle(): int
     {
-        $chunk = (int) $this->option('chunk');
-        $service = new CronsendBundle();
+        $filters = [
+            'chunk_size' => max(
+                10,
+                min(100, (int) $this->option('chunk'))
+            ),
 
-        $this->info("🚀 Mulai proses kirim bundle...");
-        $this->info("⏰ Waktu mulai: " . now());
+            'start_date' => $this->option('start-date'),
+            'end_date'   => $this->option('end-date'),
+            'search'     => $this->option('search'),
+            'status'     => strtoupper($this->option('status') ?: 'ALL'),
+        ];
 
-        Visit_encounter::where('is_send', false)
-            ->whereNotNull('tgl_kunjung')
-            ->whereNotNull('tgl_dilayani')
-            ->whereNotNull('tgl_selesai_dilayani')
-            ->whereNotNull('tgl_pulang')
-            ->orderBy('id')
-            ->chunkById($chunk, function ($visits) use ($service) {
+        $this->info('==========================================');
+        $this->info('     SATUSEHAT BUNDLE SCHEDULER');
+        $this->info('==========================================');
 
-                foreach ($visits as $visit) {
+        $this->info('Waktu       : ' . now());
+        $this->info('Status      : ' . $filters['status']);
+        $this->info('Chunk       : ' . $filters['chunk_size']);
+        $this->info('Tanggal Awal: ' . ($filters['start_date'] ?: 'Semua'));
+        $this->info('Tanggal Akhir: ' . ($filters['end_date'] ?: 'Semua'));
 
-                    $visitId = $visit->visit_id;
-
-                    try {
-
-                        $response = $service->prepareAndSendBundle($visitId);
-
-                        if (!is_array($response)) {
-                            throw new \Exception("Invalid response format from service");
-                        }
-                        if (!($response['success'] ?? false)) {
-                            throw new \Exception($response['message'] ?? 'SATUSEHAT failed (no success flag)');
-                        }
-
-                        $data = $response['data'] ?? null;
-                        if (($data['resourceType'] ?? null) === 'OperationOutcome') {
-
-                            $issues = $data['issue'] ?? [];
-
-                            foreach ($issues as $issue) {
-
-                                $severity = $issue['severity'] ?? null;
-                                $detail = $issue['details']['text'] ?? 'Unknown error';
-                                if ($severity === 'error') {
-                                    $this->logActivity(
-                                        'SATUSEHAT',
-                                        (int) $visitId,
-                                        'error',
-                                        [
-                                            'step' => 'OperationOutcome',
-                                            'detail' => $detail,
-                                            'raw' => $data
-                                        ]
-                                    );
-
-                                    throw new \Exception("SATUSEHAT ERROR: " . $detail);
-                                }
-                            }
-                        }
-                        $visit->is_send = true;
-                        $visit->save();
-                        $this->logActivity(
-                            'SATUSEHAT',
-                            (int) $visitId,
-                            'success',
-                            [
-                                'step' => 'prepareAndSendBundle',
-                                'raw' => $data ?? null
-                            ]
-                        );
-
-                        $this->info("✅ Sukses visit_id: {$visitId}");
-                    } catch (\Throwable $e) {
-
-                        $this->logActivity(
-                            'SATUSEHAT',
-                            (int) $visitId,
-                            'error',
-                            [
-                                'step' => 'prepareAndSendBundle_failed'
-                            ],
-                            $e
-                        );
-
-                        $this->error("❌ Gagal visit_id: {$visitId} - " . $e->getMessage());
-
-                        Log::error('SATUSEHAT BUNDLE ERROR', [
-                            'visit_id' => $visitId,
-                            'message' => $e->getMessage(),
-                        ]);
-                    }
-                }
-            });
-
-        $this->info("🎉 Selesai kirim bundle");
-    }
-
-    private function logActivity(
-        string $type,
-        ?int $visitId,
-        string $status,
-        array $payload = [],
-        ?\Throwable $e = null
-    ): void {
         try {
-            DB::table('simrs_error_logs')->insert([
-                'type' => $type,
-                'visit_id' => $visitId,
-                'message' => $status === 'error'
-                    ? ($e->getMessage() ?? 'ERROR')
-                    : 'SUCCESS',
 
-                'file' => $status === 'error' ? $e->getFile() : null,
-                'line' => $status === 'error' ? $e->getLine() : null,
-                'trace' => $status === 'error' ? $e->getTraceAsString() : null,
+            SendAllSatusehatJob::dispatch($filters);
 
-                'payload' => json_encode($payload),
-
-                'status' => $status,
-                'created_at' => now(),
-                'updated_at' => now(),
+            Log::info('[SATUSEHAT COMMAND] Batch berhasil dijadwalkan', [
+                'filters' => $filters,
+                'time' => now(),
             ]);
-        } catch (\Throwable $logError) {
-            Log::error('FAILED WRITE SIMRS LOG: ' . $logError->getMessage());
+
+            $this->info('------------------------------------------');
+            $this->info('Berhasil memasukkan batch ke queue.');
+            $this->info('Pengiriman akan diproses oleh Supervisor.');
+            $this->info('==========================================');
+
+            return self::SUCCESS;
+
+        } catch (\Throwable $e) {
+
+            Log::error('[SATUSEHAT COMMAND] Gagal dispatch batch', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->error('Gagal menjadwalkan pengiriman!');
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
         }
     }
 }
