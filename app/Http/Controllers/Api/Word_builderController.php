@@ -48,7 +48,7 @@ class Word_builderController
             $template->setValue($key, $value);
         }
 
-        $dataDiagnosa = [];
+        /*$dataDiagnosa = [];
         $dataDiagnosa = collect($request->data['diagnosa'])
             ->map(function ($d, $i) {
                 return [
@@ -62,9 +62,9 @@ class Word_builderController
                 ];
             })
             ->toArray();
-        $template->cloneRowAndSetValues('diag.no', $dataDiagnosa);
+        $template->cloneRowAndSetValues('diag.no', $dataDiagnosa);*/
 
-        $dataTindakan = [];
+        /*$dataTindakan = [];
         if ($request->data['tindakan']) {
             $dataTindakan = collect($request->data['tindakan'])
                 ->map(function ($d, $i) {
@@ -84,9 +84,9 @@ class Word_builderController
             //$template->setValue('tind.kode_im', '');
             //$template->setValue('tind.kode_icd9', '');
             $template->setValue('tind.dokter', '');
-        }
+        }*/
 
-        if (is_array($request->data['pemeriksaan'])) {
+        /*if (is_array($request->data['pemeriksaan'])) {
             $dataPemeriksaan = collect($request->data['pemeriksaan'])
                 ->map(fn($v) => "- " . $v)
                 ->implode("\n");
@@ -100,9 +100,9 @@ class Word_builderController
         } else {
             $dataTerapi = $request->data['terapi'];
         }
-        $template->setValue('terapi', $dataTerapi);
+        $template->setValue('terapi', $dataTerapi);*/
 
-        $template->setValue("nama_dokter", $request->nama);
+        $template->setValue("nama_dokter", $request->namadokter);
         $template->setValue("tanggal", Carbon::now()->translatedFormat('d F Y'));
         // Lokasi output DOCX
         $nameFile = "tmp_$request->berkas" . $request->id_berkas . $request->visit_id . ".docx";
